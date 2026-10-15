@@ -395,8 +395,9 @@ function renderShell() {
       <div class="island" id="island">
         <span class="tab-pill" id="tabPill"></span>
         ${TABS.map((t) => `<button class="tab" data-a="tab" data-id="${t.id}">${svg(t.icon, 24)}<span>${t.label}</span><span class="dot" hidden></span></button>`).join('')}
+        <span class="island-div" aria-hidden="true"></span>
+        <button class="tab search-tab" data-a="search-open" aria-label="Search">${svg(I.search, 24, 2.1)}<span>Search</span></button>
       </div>
-      <button class="search-dot" data-a="search-open" aria-label="Search">${svg(I.search, 24, 2.1)}</button>
     </nav>
   </div>`;
   const app = $('#app'), view = $('#view');
@@ -438,9 +439,10 @@ function refresh(enter = false) {
 function updateIsland() {
   const idx = TABS.findIndex((t) => t.id === S.tab);
   document.documentElement.style.setProperty('--tab-hue', `var(--h${TABS[idx].hue})`);
-  $('#tabPill').style.transform = `translate3d(${idx * 56}px,0,0)`;
+  const tabBtns = document.querySelectorAll('#island .tab[data-a="tab"]');
+  $('#tabPill').style.transform = `translate3d(${tabBtns[idx].offsetLeft - 6}px,0,0)`;
   const choreN = S.chores.filter(inMyDeck).length;
-  document.querySelectorAll('#island .tab').forEach((b, i) => {
+  tabBtns.forEach((b, i) => {
     const on = i === idx;
     b.classList.toggle('on', on);
     b.setAttribute('aria-current', on ? 'page' : 'false');

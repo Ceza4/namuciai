@@ -152,7 +152,7 @@ svg { display: block; flex: none; }
   transition: transform 0.4s var(--spring), opacity 0.25s;
   z-index: 20;
 }
-.island, .search-dot {
+.island {
   pointer-events: auto;
   background: var(--glass);
   -webkit-backdrop-filter: blur(22px) saturate(180%);
@@ -161,13 +161,13 @@ svg { display: block; flex: none; }
 }
 .island { display: flex; padding: 6px; border-radius: 32px; position: relative; }
 .tab-pill {
-  position: absolute; top: 6px; left: 6px; width: 56px; height: 52px; border-radius: 26px;
+  position: absolute; top: 6px; left: 6px; height: 52px; border-radius: 26px;
   background: var(--tab-hue, var(--tab-on));
   transition: transform 0.38s var(--spring), background-color 0.3s;
   will-change: transform;
 }
 .tab {
-  width: 56px; height: 52px; border-radius: 26px;
+  height: 52px; border-radius: 26px;
   display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
   color: var(--ink-2);
   font-size: 10.5px; font-weight: 600;
@@ -181,8 +181,12 @@ svg { display: block; flex: none; }
   background: var(--warn); color: #ffffff;
   font: 700 10px/16px var(--font); text-align: center;
 }
-.search-dot { width: 58px; height: 58px; border-radius: 50%; display: grid; place-items: center; color: var(--ink); transition: transform 0.15s var(--ease); }
-.search-dot:active { transform: scale(0.92); }
+.island-div { width: 1px; height: 30px; align-self: center; margin: 0 3px; background: var(--line); flex: none; }
+.search-tab { color: var(--ink); transition: transform 0.15s var(--ease), color 0.2s; }
+.search-tab:active { transform: scale(0.9); }
+.tab-pill, .tab { width: var(--tw); }
+:root { --tw: 56px; }
+@media (max-width: 374px) { :root { --tw: 50px; } .tab { font-size: 10px; } }
 
 /* ---------- top search island ---------- */
 .topsearch {
