@@ -6,6 +6,7 @@ import { header, srow, ROWS, miniStack, openDeck, openSheet, closeSheet, avatar 
 import { openCard } from './cards.js';
 import { addToCart } from './shop.js';
 import { PACKS } from './packs.js';
+import { memoryPrompts, memoriesSection } from './memories.js';
 
 export const mealRound = () => 'm' + today();
 export const dateRound = () => 'd' + (S.household?.date_round ?? 1);
@@ -161,9 +162,10 @@ export function viewIdeas(kind) {
           <span class="chip">${esc(countdown(pl.at))}</span>
         </button>`)).join('')}</div><div style="height:16px"></div>`;
     }
+    html += memoryPrompts();
   }
   if (!ideas.length) {
-    return html + `<div class="group empty"><p>${c.empty}</p>
+    return html + (kind === 'date' ? memoriesSection() + '<div style="height:14px"></div>' : '') + `<div class="group empty"><p>${c.empty}</p>
       <div class="stack-gap" style="align-items:center"><button class="btn" data-a="${c.add}">${t('Make a card')}</button><button class="text-btn" data-a="packs-${kind}">${t('Add ready-made ideas')}</button></div></div>`;
   }
   if (st.pick) {
@@ -194,6 +196,7 @@ export function viewIdeas(kind) {
     html += `<button class="launch ${pool.length ? '' : 'idle'}" data-a="${pool.length ? c.deck : ''}">${miniStack(pool.length ? pool : ideas)}
       <span class="launch-text"><span class="launch-title">${ttl}</span><span class="launch-sub">${sub}</span></span></button>`;
   }
+  if (kind === 'date') html += memoriesSection();
   const myLikes = new Set(votesIn(kind).filter((v) => v.user_id === S.uid && v.liked).map((v) => v.idea_id));
   html += `<div class="sec"><h2>${t('All ideas')}</h2><span class="count">${ideas.length}</span><button class="link" data-a="packs-${kind}">${t('Add more')}</button></div>
     <div class="group">${ideas.map((i) => {

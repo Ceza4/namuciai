@@ -109,6 +109,14 @@ export const LT = {
   'When': 'Kada', 'Repeats': 'Kartojasi', 'Once': 'Vieną kartą', 'Due date (optional)': 'Terminas (nebūtina)', 'Delete chore': 'Ištrinti darbą', 'Give the chore a name': 'Įrašyk darbo pavadinimą',
   'Pick at least one day': 'Pasirink bent vieną dieną', '{name} gave you a chore': '{name} tau paskyrė darbą',
 
+  // memories
+  'Memories': 'Prisiminimai', 'See all': 'Visi', 'Keep your dates': 'Išsaugok pasimatymus', 'After a date, add a photo and a line about it. They line up here as your timeline.': 'Po pasimatymo pridėk nuotrauką ir kelis žodžius. Čia jie susidės į jūsų laiko juostą.',
+  'How was {title}?': 'Kaip buvo: {title}?', 'Add a photo so you remember it.': 'Pridėk nuotrauką, kad prisimintum.', 'Memory': 'Prisiminimas', 'New memory': 'Naujas prisiminimas',
+  'What you did': 'Ką veikėte', 'e.g. Sunset at Gediminas tower': 'pvz. Saulėlydis prie Gedimino bokšto', 'A few words (optional)': 'Keli žodžiai (nebūtina)', 'The best part was…': 'Geriausia buvo…',
+  'Added by {name}': 'Pridėjo {name}', 'Delete memory': 'Ištrinti prisiminimą', 'Memory deleted': 'Prisiminimas ištrintas', 'Add photos': 'Pridėti nuotraukų',
+  'Wait for the photos to finish uploading': 'Palauk, kol nuotraukos įsikels', 'Give it a name': 'Įrašyk pavadinimą', '{name} added a memory': '{name} pridėjo prisiminimą',
+  '{n} dates remembered': ['{n} išsaugotas pasimatymas', '{n} išsaugoti pasimatymai', '{n} išsaugotų pasimatymų'],
+
   // love notes
   'Send a love note': 'Siųsti meilės žinutę', 'Love note': 'Meilės žinutė', 'Send': 'Siųsti', 'To {name}': 'Kam: {name}', 'Write something sweet…': 'Parašyk kažką mielo…',
   'Thinking of you': 'Galvoju apie tave', 'I love you': 'Myliu tave', 'Can’t wait to see you': 'Nekantrauju tave pamatyti', 'You’re the best': 'Tu geriausias',

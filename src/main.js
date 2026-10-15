@@ -53,6 +53,7 @@ async function loadTable(tb) {
     case 'chores': { const r = await q(sb.from('chores').select('*').order('created_at')); if (r) S.chores = r; break; }
     case 'chore_log': { const r = await q(sb.from('chore_log').select('*').gte('day', addDays(today(), -7))); if (r) S.log = r; break; }
     case 'plans': { const r = await q(sb.from('plans').select('*').gte('at', new Date(Date.now() - 7 * 864e5).toISOString()).order('at')); if (r) S.plans = r; break; }
+    case 'memories': { const r = await q(sb.from('memories').select('*').order('day', { ascending: false })); if (r) S.memories = r; break; }
     case 'love_notes': { const prev = S.love; const r = await q(sb.from('love_notes').select('*').order('created_at')); if (r) { S.love = r; loveReadCheck(prev); } break; }
     case 'picks': { const r = await q(sb.from('picks').select('*').order('created_at', { ascending: false }).limit(400)); if (r) S.picks = r; break; }
   }
@@ -60,7 +61,7 @@ async function loadTable(tb) {
 async function loadAll() {
   await flush();
   await Promise.all([loadTable('households'), loadTable('members')]);
-  await Promise.all(['notes', 'shop_items', 'ideas', 'votes', 'chores', 'chore_log', 'plans', 'picks', 'love_notes'].map(loadTable));
+  await Promise.all(['notes', 'shop_items', 'ideas', 'votes', 'chores', 'chore_log', 'plans', 'picks', 'love_notes', 'memories'].map(loadTable));
   sortOldCards();
   saveCache();
 }
@@ -81,7 +82,7 @@ function subscribe() {
   if (channel) sb.removeChannel(channel);
   const hid = S.me.household_id;
   channel = sb.channel('home-' + hid);
-  for (const tb of ['notes', 'shop_items', 'ideas', 'votes', 'chores', 'chore_log', 'members', 'plans', 'picks', 'love_notes']) {
+  for (const tb of ['notes', 'shop_items', 'ideas', 'votes', 'chores', 'chore_log', 'members', 'plans', 'picks', 'love_notes', 'memories']) {
     channel.on('postgres_changes', { event: '*', schema: 'public', table: tb, filter: `household_id=eq.${hid}` }, () => queueReload(tb));
   }
   channel.on('postgres_changes', { event: '*', schema: 'public', table: 'households', filter: `id=eq.${hid}` }, () => { queueReload('households'); queueReload('votes'); });

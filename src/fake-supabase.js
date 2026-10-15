@@ -22,7 +22,7 @@ function seed() {
       { user_id: ME, household_id: HID, display_name: 'Matas', color: 'blue', created_at: iso(now - 9e6) },
       { user_id: PA, household_id: HID, display_name: 'Urtė', color: 'rose', created_at: iso(now - 8e6) },
     ],
-    notes: [], shop_items: [], ideas: [], votes: [], chores: [], chore_log: [], push_subs: [], plans: [], picks: [], love_notes: [],
+    notes: [], shop_items: [], ideas: [], votes: [], chores: [], chore_log: [], push_subs: [], plans: [], picks: [], love_notes: [], memories: [],
   };
   const note = (title, body, by, ago, pinned = false) => db.notes.push({ id: uid(), household_id: HID, title, body, pinned, updated_by: by, created_at: iso(now - ago - 1e6), updated_at: iso(now - ago) });
   note('Weekend', 'Saturday: market in the morning\nCall grandma\nReturn the drill to Tomas', PA, 20 * 60e3, true);
@@ -48,6 +48,18 @@ function seed() {
   db.picks.push({ household_id: HID, round: 'm' + addDays(today, -3), kind: 'meal', idea_id: db.ideas.find((x) => x.title === 'Tacos').id, created_at: iso(now - 3 * 864e5) });
   db.picks.push({ household_id: HID, round: 'm' + addDays(today, -8), kind: 'meal', idea_id: db.ideas.find((x) => x.title === 'Cepelinai').id, created_at: iso(now - 8 * 864e5) });
   const sat = new Date(); sat.setDate(sat.getDate() + ((6 - sat.getDay() + 7) % 7 || 7)); sat.setHours(19, 0, 0, 0);
+  // illustrated stand-ins for photos
+  const pic = (a, b, c, shape) => 'data:image/svg+xml;utf8,' + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 380"><defs><linearGradient id="g" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${a}"/><stop offset="1" stop-color="${b}"/></linearGradient></defs><rect width="300" height="380" fill="url(#g)"/>${shape(c)}</svg>`);
+  const sunset = pic('#ffb37a', '#7a3c6b', '#ffe3a1', (c) => `<circle cx="150" cy="210" r="62" fill="${c}"/><rect y="250" width="300" height="130" fill="#3d2448"/><rect x="128" y="150" width="26" height="100" fill="#2a1830"/><path d="M118 150h46l-23-30z" fill="#2a1830"/>`);
+  const park = pic('#bfe6ff', '#9ad49a', '#3f8a4f', (c) => `<circle cx="70" cy="230" r="48" fill="${c}"/><circle cx="230" cy="215" r="58" fill="${c}"/><rect x="66" y="250" width="8" height="60" fill="#5a3b25"/><rect x="226" y="240" width="9" height="70" fill="#5a3b25"/><rect y="300" width="300" height="80" fill="#7cc276"/><rect x="100" y="290" width="100" height="40" rx="6" fill="#e2555b"/>`);
+  const games = pic('#2b2340', '#4b3a6b', '#ffd36b', (c) => `<rect x="60" y="150" width="180" height="120" rx="14" fill="#f4efe6"/><circle cx="110" cy="210" r="16" fill="#e2555b"/><circle cx="150" cy="190" r="16" fill="${c}"/><circle cx="190" cy="230" r="16" fill="#4fa3e0"/><rect x="200" y="110" width="40" height="40" rx="8" fill="#fff"/><circle cx="212" cy="122" r="4" fill="#222"/><circle cx="228" cy="138" r="4" fill="#222"/>`);
+  db.memories.push(
+    { id: uid(), household_id: HID, plan_id: null, idea_id: null, title: 'Sunset at Gediminas tower', day: addDays(today, -12), note: 'Windy, worth it.', photos: [sunset, park], created_by: PA, created_at: iso(now - 12 * 864e5) },
+    { id: uid(), household_id: HID, plan_id: null, idea_id: null, title: 'Picnic in Vingis park', day: addDays(today, -26), note: '', photos: [park], created_by: ME, created_at: iso(now - 26 * 864e5) },
+    { id: uid(), household_id: HID, plan_id: null, idea_id: null, title: 'Board game café', day: addDays(today, -40), note: 'Urtė won Ticket to Ride twice.', photos: [games], created_by: ME, created_at: iso(now - 40 * 864e5) },
+  );
+  const yest = new Date(now - 864e5); yest.setHours(19, 30, 0, 0);
+  db.plans.push({ id: uid(), household_id: HID, idea_id: null, title: 'Cinema night', at: yest.toISOString(), note: '', created_by: ME, reminded_day: true, reminded_hour: true, created_at: iso(now - 3 * 864e5) });
   db.plans.push({ id: uid(), household_id: HID, idea_id: null, title: 'Dinner at Džiaugsmas', at: sat.toISOString(), note: 'Table for two at 19:00', created_by: PA, reminded_day: false, reminded_hour: false, created_at: iso(now - 864e5) });
   // Urtė already swiped dinner: yes to tacos and ramen, no to the rest
   for (const i of db.ideas.filter((x) => x.kind === 'meal')) {
@@ -79,10 +91,11 @@ function defaults(t, r) {
   const o = { ...r };
   if (!['votes', 'chore_log', 'members', 'picks'].includes(t) && !o.id) o.id = uid();
   o.created_at ??= new Date().toISOString();
-  if (['notes', 'shop_items', 'ideas', 'votes', 'chores', 'chore_log', 'plans', 'picks', 'love_notes'].includes(t)) o.household_id ??= HID;
+  if (['notes', 'shop_items', 'ideas', 'votes', 'chores', 'chore_log', 'plans', 'picks', 'love_notes', 'memories'].includes(t)) o.household_id ??= HID;
   if (t === 'notes') { o.pinned ??= false; o.updated_at ??= o.created_at; o.updated_by ??= ME; o.title ??= ''; o.body ??= ''; }
   if (t === 'shop_items') { o.status ??= 'idle'; o.description ??= ''; o.last_swiped_at ??= null; o.qty ??= 1; o.aisle ??= 'other'; o.image_url ??= null; }
   if (t === 'ideas') { o.description ??= ''; o.ingredients ??= []; o.image_url ??= null; }
+  if (t === 'memories') { o.note ??= ''; o.photos ??= []; }
   if (t === 'plans') { o.note ??= ''; o.reminded_day ??= false; o.reminded_hour ??= false; }
   if (t === 'chores') { o.description ??= ''; o.completed_at ??= null; o.priority ??= 2; o.weekdays ??= ALL; o.recurring ??= true; o.due_date ??= null; }
   return o;
