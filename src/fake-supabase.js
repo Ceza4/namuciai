@@ -55,6 +55,7 @@ function seed() {
   const games = pic('#2b2340', '#4b3a6b', '#ffd36b', (c) => `<rect x="60" y="150" width="180" height="120" rx="14" fill="#f4efe6"/><circle cx="110" cy="210" r="16" fill="#e2555b"/><circle cx="150" cy="190" r="16" fill="${c}"/><circle cx="190" cy="230" r="16" fill="#4fa3e0"/><rect x="200" y="110" width="40" height="40" rx="8" fill="#fff"/><circle cx="212" cy="122" r="4" fill="#222"/><circle cx="228" cy="138" r="4" fill="#222"/>`);
   db.memories.push(
     { id: uid(), household_id: HID, plan_id: null, idea_id: null, title: 'Sunset at Gediminas tower', day: addDays(today, -12), note: 'Windy, worth it.', photos: [sunset, park], created_by: PA, created_at: iso(now - 12 * 864e5) },
+    { id: uid(), household_id: HID, plan_id: null, idea_id: null, title: 'Weekend in Nida', day: addDays(today, -21), day_end: addDays(today, -19), note: 'Dunes, smoked fish, too much sun.', photos: [sunset], created_by: PA, created_at: iso(now - 19 * 864e5) },
     { id: uid(), household_id: HID, plan_id: null, idea_id: null, title: 'Picnic in Vingis park', day: addDays(today, -26), note: '', photos: [park], created_by: ME, created_at: iso(now - 26 * 864e5) },
     { id: uid(), household_id: HID, plan_id: null, idea_id: null, title: 'Board game café', day: addDays(today, -40), note: 'Urtė won Ticket to Ride twice.', photos: [games], created_by: ME, created_at: iso(now - 40 * 864e5) },
   );
@@ -95,7 +96,7 @@ function defaults(t, r) {
   if (t === 'notes') { o.pinned ??= false; o.updated_at ??= o.created_at; o.updated_by ??= ME; o.title ??= ''; o.body ??= ''; }
   if (t === 'shop_items') { o.status ??= 'idle'; o.description ??= ''; o.last_swiped_at ??= null; o.qty ??= 1; o.aisle ??= 'other'; o.image_url ??= null; }
   if (t === 'ideas') { o.description ??= ''; o.ingredients ??= []; o.image_url ??= null; }
-  if (t === 'memories') { o.note ??= ''; o.photos ??= []; }
+  if (t === 'memories') { o.note ??= ''; o.photos ??= []; o.day_end ??= null; }
   if (t === 'plans') { o.note ??= ''; o.reminded_day ??= false; o.reminded_hour ??= false; }
   if (t === 'chores') { o.description ??= ''; o.completed_at ??= null; o.priority ??= 2; o.weekdays ??= ALL; o.recurring ??= true; o.due_date ??= null; }
   return o;

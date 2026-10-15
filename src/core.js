@@ -249,13 +249,36 @@ export async function uploadImage(file) {
   return sb.storage.from('media').getPublicUrl(path).data.publicUrl;
 }
 /* opens the photo picker and resolves with the chosen file (or null) */
-export function pickImage() {
+/* iPhone only honours "multiple" when the input is part of the page, so it is attached while open */
+export function pickImages({ multiple = true } = {}) {
   return new Promise((res) => {
     const i = document.createElement('input');
-    i.type = 'file'; i.accept = 'image/*';
-    i.onchange = () => res(i.files?.[0] || null);
+    i.type = 'file';
+    i.setAttribute('accept', 'image/*');
+    if (multiple) i.setAttribute('multiple', '');
+    i.style.cssText = 'position:fixed;left:-1000px;top:0;width:1px;height:1px;opacity:0';
+    document.body.appendChild(i);
+    let done = false;
+    const finish = (files) => { if (done) return; done = true; i.remove(); res(files); };
+    i.addEventListener('change', () => finish([...(i.files || [])]));
+    i.addEventListener('cancel', () => finish([]));
     i.click();
   });
+}
+export const pickImage = async () => (await pickImages({ multiple: false }))[0] || null;
+/* upload several at once, three in parallel, keeping the chosen order */
+export async function uploadMany(files, onEach) {
+  const out = new Array(files.length);
+  let next = 0;
+  const worker = async () => {
+    while (next < files.length) {
+      const k = next++;
+      try { out[k] = await uploadImage(files[k]); } catch (e) { out[k] = null; toast(e.message); }
+      onEach?.(out[k], k);
+    }
+  };
+  await Promise.all([worker(), worker(), worker()]);
+  return out.filter(Boolean);
 }
 
 export function notify(kind, title, body, url) {

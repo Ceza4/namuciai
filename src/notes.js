@@ -1,6 +1,6 @@
 // Notes: list with Notes-app swipes, and a line-based editor for text, checklists, photos and GIFs.
 // Stored as plain text so old notes keep working: "[ ] item", "[x] done item", "![](image url)".
-import { $, esc, svg, I, S, db, uuid, refresh, toast, haptic, ago, shortWhen, nameOf, notify, uploadImage, pickImage, on, store, raf } from './core.js';
+import { $, esc, svg, I, S, db, uuid, refresh, toast, haptic, ago, shortWhen, nameOf, notify, uploadImage, pickImages, on, store, raf } from './core.js';
 import { t } from './i18n.js';
 import { avatar, header, srow, ROWS, openSheet, closeSheet, autoGrow } from './ui.js';
 
@@ -258,16 +258,15 @@ export function openNote(id) {
     }
   });
 
-  async function addImage(file, afterLine) {
-    if (!file) return;
+  function addImage(file, afterLine) {
+    if (!file) return afterLine;
     const ph = lineEl({ k: 'i', uploading: true });
     const local = URL.createObjectURL(file);
     ph.querySelector('img').src = local;
     const anchor = afterLine && box.contains(afterLine) ? afterLine : box.lastElementChild;
     anchor ? anchor.after(ph) : box.appendChild(ph);
     if (!ph.nextElementSibling) ph.after(lineEl({ k: 't', text: '' }));
-    try {
-      const url = await uploadImage(file);
+    uploadImage(file).then((url) => {
       ph.dataset.src = url;
       ph.classList.remove('uploading');
       const img = ph.querySelector('img');
@@ -275,10 +274,8 @@ export function openNote(id) {
       real.onload = () => { img.src = url; URL.revokeObjectURL(local); };
       real.src = url;
       touched();
-    } catch (err) {
-      ph.remove(); URL.revokeObjectURL(local);
-      toast(err.message);
-    }
+    }).catch((err) => { ph.remove(); URL.revokeObjectURL(local); toast(err.message); });
+    return ph;
   }
 
   if (!note) setTimeout(() => title.focus(), 80);
@@ -306,7 +303,11 @@ export function openNote(id) {
       const lt = ln.querySelector('.lt'); setCaret(lt, lt.textContent.length);
       haptic(); touched();
     }
-    if (a === 'tool-image') addImage(await pickImage(), lastLine);
+    if (a === 'tool-image') {
+      const files = await pickImages();
+      let after = lastLine && box.contains(lastLine) ? lastLine : null;
+      for (const f of files) after = addImage(f, after);
+    }
     if (a === 'pin' && note) {
       note.pinned = !note.pinned;
       const pb = e.target.closest('button');

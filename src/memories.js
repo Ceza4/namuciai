@@ -1,11 +1,20 @@
 // Date memories: after a date, add photos and a few words. They build a timeline on the Dates tab.
-import { $, esc, svg, I, S, db, uuid, refresh, toast, haptic, hueOf, notify, on, store, today, ymd, fmtDay, uploadImage, nameOf } from './core.js';
+import { $, esc, svg, I, S, db, uuid, refresh, toast, haptic, hueOf, notify, on, store, today, ymd, fmtDay, nameOf, pickImages, uploadMany } from './core.js';
 import { t, tn, locale } from './i18n.js';
 import { openSheet, closeSheet, autoGrow, avatar } from './ui.js';
 
 const sortedMemories = () => [...S.memories].sort((a, b) => (a.day < b.day ? 1 : a.day > b.day ? -1 : new Date(b.created_at) - new Date(a.created_at)));
 const fmtLong = (d) => new Date(d + 'T12:00:00').toLocaleDateString(locale(), { day: 'numeric', month: 'long', year: 'numeric' });
 const fmtShort = (d) => new Date(d + 'T12:00:00').toLocaleDateString(locale(), { day: 'numeric', month: 'short' });
+/* "14 Oct", or "3–5 Oct" / "30 Sept – 2 Oct" for a range */
+export function fmtRange(a, b) {
+  if (!b || b === a) return fmtShort(a);
+  const A = new Date(a + 'T12:00:00'), B = new Date(b + 'T12:00:00');
+  if (A.getMonth() === B.getMonth() && A.getFullYear() === B.getFullYear()) {
+    return `${A.getDate()}–${B.toLocaleDateString(locale(), { day: 'numeric', month: 'short' })}`;
+  }
+  return `${fmtShort(a)} – ${fmtShort(b)}`;
+}
 
 /* past plans (last two weeks) that don't have a memory yet */
 function pendingPrompts() {
@@ -32,7 +41,7 @@ function memCard(m) {
   const cover = m.photos?.[0];
   return `<button class="mem-card" data-a="mem-open" data-id="${m.id}" style="${cover ? `background-image:url('${esc(cover)}')` : `background:${hueOf(m.id)}`}">
     ${m.photos?.length > 1 ? `<span class="mem-count">${svg(I.image, 13, 2.2)} ${m.photos.length}</span>` : ''}
-    <span class="mem-cap ${cover ? '' : 'plain'}"><b>${esc(m.title)}</b><span>${esc(fmtShort(m.day))}</span></span>
+    <span class="mem-cap ${cover ? '' : 'plain'}"><b>${esc(m.title)}</b><span>${esc(fmtRange(m.day, m.day_end))}</span></span>
   </button>`;
 }
 
@@ -71,14 +80,6 @@ function openTimeline() {
   });
 }
 
-function pickImages() {
-  return new Promise((res) => {
-    const i = document.createElement('input');
-    i.type = 'file'; i.accept = 'image/*'; i.multiple = true;
-    i.onchange = () => res([...(i.files || [])]);
-    i.click();
-  });
-}
 
 export function openMemory({ id, plan, pick = false } = {}) {
   const m = id ? S.memories.find((x) => x.id === id) : null;
@@ -96,14 +97,17 @@ export function openMemory({ id, plan, pick = false } = {}) {
       <div class="mem-photos" id="memPhotos"></div>
       <label class="field-label" for="memTitle">${t('What you did')}</label>
       <input class="input" id="memTitle" value="${esc(title0)}" maxlength="80" placeholder="${esc(t('e.g. Sunset at Gediminas tower'))}">
-      <label class="field-label" for="memDay">${t('When')}</label>
-      <input class="input" id="memDay" type="date" value="${day0}" max="${today()}">
+      <div class="two">
+        <div><label class="field-label" for="memDay">${t('From')}</label><input class="input" id="memDay" type="date" value="${day0}" max="${today()}"></div>
+        <div><label class="field-label" for="memDayEnd">${t('To (optional)')}</label><input class="input" id="memDayEnd" type="date" value="${m?.day_end || ''}" min="${day0}" max="${today()}"></div>
+      </div>
       <label class="field-label" for="memNote">${t('A few words (optional)')}</label>
       <textarea class="input" id="memNote" rows="3" maxlength="600" placeholder="${esc(t('The best part was…'))}">${esc(m?.note || '')}</textarea>
       ${m ? `<p class="hint">${avatar(m.created_by, 'xs')} ${t('Added by {name}', { name: esc(nameOf(m.created_by)) })}</p>
         <div style="margin-top:20px;text-align:center"><button class="btn danger" data-a="mem-del">${svg(I.trash, 18)} ${t('Delete memory')}</button></div>` : ''}
     </div></div>`);
   const box = $('#memPhotos', sheet), note = $('#memNote', sheet);
+  $('#memDay', sheet).addEventListener('change', (e) => { const end = $('#memDayEnd', sheet); end.min = e.target.value; if (end.value && end.value < e.target.value) end.value = ''; });
   autoGrow(note); note.addEventListener('input', () => autoGrow(note));
   const paint = () => {
     box.innerHTML = photos.map((src, i) => `<div class="mem-ph ${i === 0 ? 'first' : ''}" style="background-image:url('${esc(src)}')"><button type="button" data-rm="${i}" aria-label="${esc(t('Remove photo'))}">${svg(I.x, 14, 2.6)}</button></div>`).join('')
@@ -115,10 +119,9 @@ export function openMemory({ id, plan, pick = false } = {}) {
     const files = await pickImages();
     if (!files.length) return;
     uploading += files.length; paint();
-    for (const f of files) {
-      try { photos.push(await uploadImage(f)); } catch (err) { toast(err.message); }
-      uploading--; paint();
-    }
+    const at = photos.length;
+    const got = new Array(files.length);
+    await uploadMany(files, (url, k) => { got[k] = url; uploading--; photos.splice(at, photos.length - at, ...got.filter(Boolean)); paint(); });
     haptic();
   };
   if (pick) setTimeout(addPhotos, 450);
@@ -141,7 +144,11 @@ export function openMemory({ id, plan, pick = false } = {}) {
       if (uploading) { toast(t('Wait for the photos to finish uploading')); return; }
       const title = $('#memTitle', sheet).value.trim();
       if (!title) { toast(t('Give it a name')); $('#memTitle', sheet).focus(); return; }
-      const row = { title, day: $('#memDay', sheet).value || today(), note: note.value.trim(), photos };
+      const day = $('#memDay', sheet).value || today();
+      let dayEnd = $('#memDayEnd', sheet).value || null;
+      if (dayEnd && dayEnd < day) { toast(t('The end date is before the start date')); return; }
+      if (dayEnd === day) dayEnd = null;
+      const row = { title, day, day_end: dayEnd, note: note.value.trim(), photos };
       closeSheet(sheet);
       if (m) { Object.assign(m, row); db.update('memories', { id: m.id }, row); }
       else {
