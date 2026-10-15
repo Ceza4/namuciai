@@ -17,32 +17,41 @@ const ALL = [0, 1, 2, 3, 4, 5, 6];
 
 function seed() {
   const db = {
-    households: [{ id: HID, name: 'Home', invite_code: 'K7Q2MX', date_round: 1, created_at: iso(now) }],
+    households: [{ id: HID, name: 'Home', invite_code: 'K7Q2MX', date_round: 1, shopping_by: null, shopping_at: null, created_at: iso(now) }],
     members: [
       { user_id: ME, household_id: HID, display_name: 'Matas', color: 'blue', created_at: iso(now - 9e6) },
       { user_id: PA, household_id: HID, display_name: 'Urtė', color: 'rose', created_at: iso(now - 8e6) },
     ],
-    notes: [], shop_items: [], ideas: [], votes: [], chores: [], chore_log: [], push_subs: [],
+    notes: [], shop_items: [], ideas: [], votes: [], chores: [], chore_log: [], push_subs: [], plans: [], picks: [],
   };
   const note = (title, body, by, ago, pinned = false) => db.notes.push({ id: uid(), household_id: HID, title, body, pinned, updated_by: by, created_at: iso(now - ago - 1e6), updated_at: iso(now - ago) });
   note('Weekend', 'Saturday: market in the morning\nCall grandma\nReturn the drill to Tomas', PA, 20 * 60e3, true);
   note('Gift ideas for Mom', 'Scarf\nThat cookbook she mentioned\nFlowers and a card', ME, 5 * 36e5);
   note('', 'Book the car service before November', PA, 864e5);
   note('Wi-Fi', 'Network: Namai5G\nPassword is on the router sticker', ME, 3 * 864e5);
+  note('Packing for Riga', '[x] Passports\n[x] Phone chargers\n[ ] Swimsuits\n[ ] Snacks for the bus\n[ ] Book the hotel parking', ME, 2 * 36e5);
   note('Paint for the hallway', 'Sadolin, colour code 0502-Y\n2.5 l should be enough', PA, 9 * 864e5);
 
-  for (const [title, status, description] of [
-    ['Milk', 'cart', ''], ['Bananas', 'cart', ''], ['Eggs', 'idle', 'Free range, 10 pack'],
-    ['Coffee beans', 'idle', 'Medium roast'], ['Bread', 'idle', 'Rye from the bakery'],
-    ['Dish soap', 'idle', ''], ['Toilet paper', 'idle', ''], ['Butter', 'idle', ''], ['Tomatoes', 'idle', ''],
-  ]) db.shop_items.push({ id: uid(), household_id: HID, title, description, status, last_swiped_at: null, created_by: ME, created_at: iso(now - 1e6), updated_at: iso(now) });
+  for (const [title, status, description, aisle, qty] of [
+    ['Milk', 'cart', '', 'dairy', 2], ['Bananas', 'cart', '', 'produce', 1], ['Rye bread', 'cart', 'From the bakery', 'bakery', 1], ['Eggs', 'idle', 'Free range, 10 pack', 'dairy', 1],
+    ['Coffee beans', 'idle', 'Medium roast', 'pantry', 1], ['Dish soap', 'idle', '', 'household', 1], ['Toilet paper', 'idle', '', 'household', 1],
+    ['Butter', 'idle', '', 'dairy', 1], ['Tomatoes', 'idle', '', 'produce', 1], ['Sparkling water', 'idle', '', 'drinks', 1],
+  ]) db.shop_items.push({ id: uid(), household_id: HID, title, description, status, aisle, qty, image_url: null, last_swiped_at: null, created_by: ME, created_at: iso(now - 1e6), updated_at: iso(now) });
 
-  const meals = ['Pasta carbonara', 'Tacos', 'Cepelinai', 'Ramen', 'Curry', 'Homemade pizza'];
-  for (const t of meals) db.ideas.push({ id: uid(), household_id: HID, kind: 'meal', title: t, description: t === 'Tacos' ? 'With the spicy salsa' : '', created_by: ME, created_at: iso(now - 1e6) });
-  for (const t of ['Picnic in Vingis park', 'Board game café', 'Day trip to Trakai', 'Cinema night']) db.ideas.push({ id: uid(), household_id: HID, kind: 'date', title: t, description: '', created_by: PA, created_at: iso(now - 1e6) });
+  const meals = [
+    ['Pasta carbonara', '', ['Spaghetti', 'Eggs', 'Parmesan', 'Bacon']], ['Tacos', 'With the spicy salsa', ['Tortillas', 'Minced beef', 'Tomatoes', 'Cheese', 'Sour cream']],
+    ['Cepelinai', '', ['Potatoes', 'Minced pork', 'Sour cream']], ['Ramen', '', ['Noodles', 'Eggs', 'Spring onions']], ["McDonald's", '', []], ['Hesburger', '', []],
+  ];
+  for (const [t, d, ing] of meals) db.ideas.push({ id: uid(), household_id: HID, kind: 'meal', title: t, description: d, ingredients: ing, image_url: null, created_by: ME, created_at: iso(now - 1e6) });
+  for (const t of ['Picnic in Vingis park', 'Board game café', 'Day trip to Trakai', 'Cinema night']) db.ideas.push({ id: uid(), household_id: HID, kind: 'date', title: t, description: '', ingredients: [], image_url: null, created_by: PA, created_at: iso(now - 1e6) });
+  // history: tacos three days ago, cepelinai last week
+  db.picks.push({ household_id: HID, round: 'm' + addDays(today, -3), kind: 'meal', idea_id: db.ideas.find((x) => x.title === 'Tacos').id, created_at: iso(now - 3 * 864e5) });
+  db.picks.push({ household_id: HID, round: 'm' + addDays(today, -8), kind: 'meal', idea_id: db.ideas.find((x) => x.title === 'Cepelinai').id, created_at: iso(now - 8 * 864e5) });
+  const sat = new Date(); sat.setDate(sat.getDate() + ((6 - sat.getDay() + 7) % 7 || 7)); sat.setHours(19, 0, 0, 0);
+  db.plans.push({ id: uid(), household_id: HID, idea_id: null, title: 'Dinner at Džiaugsmas', at: sat.toISOString(), note: 'Table for two at 19:00', created_by: PA, reminded_day: false, reminded_hour: false, created_at: iso(now - 864e5) });
   // Urtė already swiped dinner: yes to tacos and ramen, no to the rest
   for (const i of db.ideas.filter((x) => x.kind === 'meal')) {
-    db.votes.push({ idea_id: i.id, user_id: PA, round: 'm' + today, liked: ['Tacos', 'Ramen'].includes(i.title), household_id: HID, created_at: iso(now - 6e5) });
+    db.votes.push({ idea_id: i.id, user_id: PA, round: 'm' + today, liked: ['Tacos', 'Ramen', 'Hesburger'].includes(i.title), household_id: HID, created_at: iso(now - 6e5) });
   }
   const dateYes = db.ideas.find((x) => x.title === 'Board game café');
   db.votes.push({ idea_id: dateYes.id, user_id: PA, round: 'd1', liked: true, household_id: HID, created_at: iso(now - 6e5) });
@@ -61,18 +70,20 @@ function seed() {
 }
 
 let db = seed();
+const files = {};
 const listeners = [];
 const emit = (table) => listeners.forEach((l) => { if (l.table === table) l.cb({ table }); });
 const copy = (o) => JSON.parse(JSON.stringify(o));
 
 function defaults(t, r) {
   const o = { ...r };
-  if (t !== 'votes' && t !== 'chore_log' && t !== 'members' && !o.id) o.id = uid();
+  if (!['votes', 'chore_log', 'members', 'picks'].includes(t) && !o.id) o.id = uid();
   o.created_at ??= new Date().toISOString();
-  if (['notes', 'shop_items', 'ideas', 'votes', 'chores', 'chore_log'].includes(t)) o.household_id ??= HID;
+  if (['notes', 'shop_items', 'ideas', 'votes', 'chores', 'chore_log', 'plans', 'picks'].includes(t)) o.household_id ??= HID;
   if (t === 'notes') { o.pinned ??= false; o.updated_at ??= o.created_at; o.updated_by ??= ME; o.title ??= ''; o.body ??= ''; }
-  if (t === 'shop_items') { o.status ??= 'idle'; o.description ??= ''; o.last_swiped_at ??= null; }
-  if (t === 'ideas') o.description ??= '';
+  if (t === 'shop_items') { o.status ??= 'idle'; o.description ??= ''; o.last_swiped_at ??= null; o.qty ??= 1; o.aisle ??= 'other'; o.image_url ??= null; }
+  if (t === 'ideas') { o.description ??= ''; o.ingredients ??= []; o.image_url ??= null; }
+  if (t === 'plans') { o.note ??= ''; o.reminded_day ??= false; o.reminded_hour ??= false; }
   if (t === 'chores') { o.description ??= ''; o.completed_at ??= null; o.priority ??= 2; o.weekdays ??= ALL; o.recurring ??= true; o.due_date ??= null; }
   return o;
 }
@@ -134,9 +145,17 @@ const session = { access_token: 'demo', user };
 export function createClient() {
   return {
     from: (t) => new Query(t),
-    rpc: async (name) => {
+    rpc: async function (name) {
       if (name === 'new_date_round') { db.households[0].date_round++; return { data: db.households[0].date_round, error: null }; }
+      if (name === 'set_shopping') { const h = db.households[0]; h.shopping_by = arguments[1]?.p_on ? ME : null; h.shopping_at = arguments[1]?.p_on ? new Date().toISOString() : null; return { data: null, error: null }; }
+      if (name === 'quick_token') return { data: 'demo-token', error: null };
       return { data: {}, error: null };
+    },
+    storage: {
+      from: () => ({
+        upload: async (path, blob) => { files[path] = URL.createObjectURL(blob); return { data: { path }, error: null }; },
+        getPublicUrl: (path) => ({ data: { publicUrl: files[path] } }),
+      }),
     },
     auth: {
       getSession: async () => ({ data: { session } }),

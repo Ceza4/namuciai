@@ -11,7 +11,7 @@ const cors = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
-const QUIET_MIN: Record<string, number> = { note: 15, chore: 5, match: 0, test: 0, daily: 600 };
+const QUIET_MIN: Record<string, number> = { note: 15, chore: 5, match: 0, test: 0, daily: 600, shop: 30, plan: 0, remind: 0 };
 
 const admin = createClient(
   Deno.env.get("SUPABASE_URL")!,
@@ -66,6 +66,32 @@ function todayIn(tz: string) {
   return { day: `${get("year")}-${get("month")}-${get("day")}`, dow };
 }
 
+function fmtTime(iso: string) {
+  return new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/Vilnius', hour: '2-digit', minute: '2-digit' }).format(new Date(iso));
+}
+// date plans: a morning heads-up on the day, and one about an hour before
+async function planReminders(morning: boolean) {
+  const { day } = todayIn('Europe/Vilnius');
+  const now = Date.now();
+  const { data: plans } = await admin.from('plans').select('*').gte('at', new Date(now - 36e5).toISOString()).lte('at', new Date(now + 36 * 36e5).toISOString());
+  const { data: members } = await admin.from('members').select('user_id, household_id');
+  const out: unknown[] = [];
+  for (const p of plans ?? []) {
+    const who = (members ?? []).filter((m) => m.household_id === p.household_id);
+    const pday = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Vilnius' }).format(new Date(p.at));
+    const mins = (new Date(p.at).getTime() - now) / 60000;
+    if (morning && !p.reminded_day && pday === day) {
+      for (const m of who) out.push(await pushTo(m.user_id, 'remind', { title: 'Date today', body: `${p.title} at ${fmtTime(p.at)}`, url: './#dates', tag: 'plan-' + p.id }));
+      await admin.from('plans').update({ reminded_day: true }).eq('id', p.id);
+    }
+    if (!p.reminded_hour && mins > 0 && mins <= 75) {
+      for (const m of who) out.push(await pushTo(m.user_id, 'remind', { title: 'Date in about an hour', body: `${p.title} at ${fmtTime(p.at)}`, url: './#dates', tag: 'plan-' + p.id }));
+      await admin.from('plans').update({ reminded_hour: true }).eq('id', p.id);
+    }
+  }
+  return out;
+}
+
 async function dailyReminders() {
   const { day, dow } = todayIn("Europe/Vilnius");
   const { data: members } = await admin.from("members").select("user_id, household_id, display_name");
@@ -105,7 +131,9 @@ Deno.serve(async (req) => {
     const cronToken = req.headers.get("x-cron-token");
     if (cronToken) {
       if (cronToken !== s.cron_token) return json({ error: "bad token" }, 401);
-      return json({ ok: true, results: await dailyReminders() });
+      const body = await req.json().catch(() => ({}));
+      if (body.mode === 'plans') return json({ ok: true, results: await planReminders(false) });
+      return json({ ok: true, results: [...await dailyReminders(), ...await planReminders(true)] });
     }
 
     const jwt = (req.headers.get("Authorization") ?? "").replace(/^Bearer\s+/i, "");
@@ -115,7 +143,7 @@ Deno.serve(async (req) => {
 
     const body = await req.json().catch(() => ({}));
     const kind = String(body.kind ?? "note");
-    if (!(kind in QUIET_MIN) || kind === "daily") return json({ error: "bad kind" }, 400);
+    if (!(kind in QUIET_MIN) || kind === "daily" || kind === "remind") return json({ error: "bad kind" }, 400);
 
     const { data: mine } = await admin.from("members").select("household_id, display_name").eq("user_id", me).single();
     if (!mine) return json({ error: "no home" }, 400);
