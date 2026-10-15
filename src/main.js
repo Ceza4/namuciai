@@ -104,6 +104,41 @@ function friendly(m = '') {
 }
 
 /* ================================================================== */
+/* appearance: system / light / dark, plus the Love palette           */
+/* ================================================================== */
+function applyTheme(animate = false) {
+  const r = document.documentElement;
+  const mode = store.get('theme') || 'system';
+  if (animate && !reduceMotion()) { r.classList.add('theme-anim'); setTimeout(() => r.classList.remove('theme-anim'), 420); }
+  if (mode === 'system') { if (r.dataset.themeBy === 'app') { r.removeAttribute('data-theme'); delete r.dataset.themeBy; } }
+  else { r.setAttribute('data-theme', mode); r.dataset.themeBy = 'app'; }
+  if (store.get('love') === '1') r.setAttribute('data-love', ''); else r.removeAttribute('data-love');
+  raf(() => {
+    const bg = getComputedStyle(document.body).backgroundColor;
+    document.querySelectorAll('meta[name="theme-color"]').forEach((x) => x.remove());
+    const m = document.createElement('meta'); m.name = 'theme-color'; m.content = bg; document.head.appendChild(m);
+  });
+}
+applyTheme();
+try { matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => applyTheme()); } catch {}
+
+/* keep the page itself from staying scrolled after the iOS keyboard closes,
+   which pushed the bottom island off screen */
+function pinViewport() {
+  const fix = () => {
+    const a = document.activeElement;
+    if (a && /^(INPUT|TEXTAREA)$/.test(a.tagName)) return;
+    if (window.scrollY || window.scrollX || document.documentElement.scrollTop || document.body.scrollTop) {
+      window.scrollTo(0, 0); document.documentElement.scrollTop = 0; document.body.scrollTop = 0;
+    }
+  };
+  document.addEventListener('focusout', () => setTimeout(fix, 90));
+  window.addEventListener('scroll', fix, { passive: true });
+  window.visualViewport?.addEventListener('resize', () => setTimeout(fix, 90));
+  document.addEventListener('visibilitychange', () => setTimeout(fix, 60));
+}
+
+/* ================================================================== */
 /* icons                                                               */
 /* ================================================================== */
 const svg = (p, s = 24, w = 1.9) => `<svg viewBox="0 0 24 24" width="${s}" height="${s}" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${p}</svg>`;
@@ -228,6 +263,7 @@ const ICON_SRC = typeof __ICON__ !== 'undefined' ? __ICON__ : 'icons/icon-192.pn
 
 async function boot() {
   document.addEventListener('touchstart', () => {}, { passive: true }); // enables :active on iOS
+  pinViewport();
   if (!DEMO && 'serviceWorker' in navigator) {
     navigator.serviceWorker.register('sw.js').catch(() => {});
     navigator.serviceWorker.addEventListener('message', (e) => { if (e.data?.nav) setTab(e.data.nav); });
@@ -250,6 +286,7 @@ async function enterApp() {
   syncPush();
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible' && S.me) {
+      if (S.searching && !$('#q')?.value.trim()) closeSearch();
       loadAll().then(() => refresh());
       if (channel?.state !== 'joined') subscribe();
     }
@@ -403,6 +440,7 @@ function renderShell() {
   const app = $('#app'), view = $('#view');
   app.addEventListener('click', onClick);
   $('#q').addEventListener('input', () => renderView());
+  $('#q').addEventListener('blur', () => setTimeout(() => { if (S.searching && !$('#q').value.trim()) closeSearch(); }, 160));
   let compact = false;
   view.addEventListener('scroll', () => {
     const c = view.scrollTop > 48;
@@ -866,79 +904,91 @@ function shopDeck() {
 /* dinner + date ideas                                                 */
 /* ================================================================== */
 const votesIn = (kind) => { const r = roundFor(kind); return S.votes.filter((v) => v.round === r); };
-function matchFor(kind) {
-  if (S.members.length < 2) return null;
-  const vs = votesIn(kind).filter((v) => v.liked);
-  let best = null;
-  for (const i of S.ideas.filter((x) => x.kind === kind)) {
-    const mine = vs.filter((v) => v.idea_id === i.id);
-    if (mine.length >= 2) {
-      const t = Math.max(...mine.map((v) => +new Date(v.created_at)));
-      if (!best || t < best.t) best = { idea: i, t };
+/* Blind voting: nobody sees the other's swipes. Once both have swiped every idea,
+   one of the ideas you both said yes to is picked at random. The pick is derived
+   from the round and the shared likes, so both phones land on the same idea. */
+function roundState(kind) {
+  const ideas = S.ideas.filter((i) => i.kind === kind);
+  const ids = new Set(ideas.map((i) => i.id));
+  const vs = votesIn(kind).filter((v) => ids.has(v.idea_id));
+  const p = partner();
+  const swiped = (uid) => new Set(vs.filter((v) => v.user_id === uid).map((v) => v.idea_id));
+  const liked = (uid) => new Set(vs.filter((v) => v.user_id === uid && v.liked).map((v) => v.idea_id));
+  const mine = swiped(S.uid), theirs = p ? swiped(p.user_id) : new Set();
+  const meDone = ideas.length > 0 && mine.size >= ideas.length;
+  const themDone = !!p && ideas.length > 0 && theirs.size >= ideas.length;
+  const done = meDone && themDone;
+  let mutual = [], pick = null;
+  if (done) {
+    const a = liked(S.uid), b = liked(p.user_id);
+    mutual = ideas.filter((i) => a.has(i.id) && b.has(i.id)).sort((x, y) => (x.id < y.id ? -1 : 1));
+    if (mutual.length) {
+      let h = 0;
+      for (const ch of roundFor(kind) + mutual.map((m) => m.id).join('')) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
+      pick = mutual[h % mutual.length];
     }
   }
-  return best?.idea || null;
+  return { ideas, p, mine, theirs, meDone, themDone, done, mutual, pick };
 }
+const matchFor = (kind) => roundState(kind).pick;
 function ideaPool(kind) {
-  const mine = new Set(votesIn(kind).filter((v) => v.user_id === S.uid).map((v) => v.idea_id));
-  const theirs = new Set(votesIn(kind).filter((v) => v.user_id !== S.uid && v.liked).map((v) => v.idea_id));
+  const mine = roundState(kind).mine;
   return S.ideas.filter((i) => i.kind === kind && !mine.has(i.id))
-    .map((i) => ({ i, k: Math.random() + (theirs.has(i.id) ? 0.35 : 0) }))
-    .sort((a, b) => b.k - a.k).map((x) => x.i);
+    .map((i) => ({ i, k: Math.random() })).sort((a, b) => a.k - b.k).map((x) => x.i);
 }
+const pickReason = (n) => (n === 1 ? 'The only one you both said yes to.' : `Picked at random from ${n} you both said yes to.`);
 
 const IDEA_COPY = {
   meal: { title: 'Dinner', when: 'Tonight', add: 'card-new-meal', deck: 'deck-meal', reset: 'Start over', resetA: 'reset-meal',
-    empty: "Add the dinners you both like. You each swipe, and the first one you both say yes to is tonight's dinner.",
+    empty: "Add the dinners you both like. You each swipe on your own, and once you've both finished, one you both said yes to is picked for tonight.",
     starters: ['Pasta carbonara', 'Cepelinai', 'Homemade pizza', 'Tacos', 'Ramen', 'Burgers', 'Salmon with potatoes', 'Curry', 'Sushi takeaway', 'Šaltibarščiai'] },
   date: { title: 'Dates', when: 'Next date', add: 'card-new-date', deck: 'deck-date', reset: 'Plan another', resetA: 'reset-date',
-    empty: 'Add date ideas. You both swipe, and the first one you both like becomes the next date.',
+    empty: "Add date ideas. You each swipe on your own, and once you've both finished, one you both liked becomes the next date.",
     starters: ['Picnic in Vingis park', 'Cinema night', 'Cook something new together', 'Board game café', 'Sunset walk', 'Museum afternoon', 'Day trip to Trakai', 'Spa evening', 'Concert', 'Try a new restaurant'] },
 };
 
 function viewIdeas(kind) {
   const c = IDEA_COPY[kind];
-  const ideas = S.ideas.filter((i) => i.kind === kind);
+  const st = roundState(kind);
+  const { ideas, p } = st;
   let html = header(c.title, c.add);
   if (!ideas.length) {
     return html + `<div class="group empty"><p>${c.empty}</p>
       <div class="stack-gap" style="align-items:center"><button class="btn" data-a="${c.add}">Make a card</button><button class="text-btn" data-a="starter-${kind}">Add some starter ideas</button></div></div>`;
   }
-  const m = matchFor(kind);
-  const p = partner();
-  if (m) {
+  if (st.pick) {
+    const m = st.pick;
     html += `<div class="pick" style="background:${hueOf(m.id)}">
       <div class="pick-when">${avatar(S.uid, 'sm')}${avatar(p?.user_id, 'sm')}<span style="margin-left:4px">${c.when}</span></div>
       <div class="pick-title">${esc(m.title)}</div>
-      ${m.description ? `<p class="pick-desc">${esc(m.description)}</p>` : '<div style="height:10px"></div>'}
+      ${m.description ? `<p class="pick-desc">${esc(m.description)}</p>` : ''}
+      <p class="pick-desc">${pickReason(st.mutual.length)}</p>
       <button class="btn small ghost" data-a="${c.resetA}">${c.reset}</button>
     </div>`;
+  } else if (st.done) {
+    html += `<div class="group empty"><p><b style="color:var(--ink)">No match this time.</b><br>You didn't say yes to any of the same ideas.</p>
+      <button class="btn" data-a="${c.resetA}">Swipe again</button></div>`;
   } else {
     const pool = ideaPool(kind);
-    const vs = votesIn(kind);
-    const mineN = vs.filter((v) => v.user_id === S.uid).length;
-    const theirN = p ? vs.filter((v) => v.user_id === p.user_id).length : 0;
+    const n = ideas.length;
     let sub;
-    if (!p) sub = `Matching starts once your partner joins with code ${esc(S.household?.invite_code)}.`;
-    else if (pool.length) sub = `${esc(p.display_name)} has swiped ${theirN} of ${ideas.length}. You've swiped ${mineN}.`;
-    else if (theirN < ideas.length) sub = `You're done. Waiting for ${esc(p.display_name)} (${theirN} of ${ideas.length}).`;
-    else sub = 'No match this round.';
+    if (!p) sub = `Picking starts once your partner joins with code ${esc(S.household?.invite_code)}.`;
+    else if (pool.length) sub = `${esc(p.display_name)} ${st.themDone ? 'has finished' : `has swiped ${st.theirs.size} of ${n}`}. The pick appears once you've both finished.`;
+    else sub = `You're done. Waiting for ${esc(p.display_name)} (${st.theirs.size} of ${n}). Nobody sees the other's swipes.`;
     html += `<button class="launch ${pool.length ? '' : 'idle'}" data-a="${pool.length ? c.deck : ''}">
       ${miniStack(pool.length ? pool : ideas)}
-      <span class="launch-text"><span class="launch-title">${pool.length ? (kind === 'meal' ? "Pick tonight's dinner" : 'Pick the next date') : 'All swiped'}</span>
+      <span class="launch-text"><span class="launch-title">${pool.length ? (st.mine.size ? `Keep swiping (${st.mine.size} of ${n})` : kind === 'meal' ? "Pick tonight's dinner" : 'Pick the next date') : 'All swiped'}</span>
       <span class="launch-sub">${sub}</span></span>
     </button>`;
-    if (!pool.length && p && theirN >= ideas.length) html += `<div style="margin-top:10px"><button class="btn small ghost" data-a="${c.resetA}">Swipe again</button></div>`;
   }
+  const myLikes = new Set(votesIn(kind).filter((v) => v.user_id === S.uid && v.liked).map((v) => v.idea_id));
   html += `<div class="sec"><h2>All ideas</h2><span class="count">${ideas.length}</span></div>
-    <div class="group">${ideas.map((i) => {
-      const liked = votesIn(kind).some((v) => v.idea_id === i.id && v.liked && v.user_id === S.uid);
-      return srow('card', i.id, `<button class="srow-fg row" data-a="card-edit" data-id="${i.id}">
+    <div class="group">${ideas.map((i) => srow('card', i.id, `<button class="srow-fg row" data-a="card-edit" data-id="${i.id}">
         <span class="swatch" style="background:${hueOf(i.id)}"></span>
         <span class="row-main"><span class="row-title">${esc(i.title)}</span>${i.description ? `<span class="row-sub">${esc(i.description)}</span>` : ''}</span>
-        ${liked ? `<span style="color:var(--p-rose)" title="You said yes">${svg(I.heart, 18, 2.2)}</span>` : ''}
-      </button>`);
-    }).join('')}</div>`;
+        ${myLikes.has(i.id) ? `<span style="color:var(--p-rose)" title="You said yes">${svg(I.heart, 18, 2.2)}</span>` : ''}
+      </button>`)).join('')}</div>`;
+  if (myLikes.size) html += `<p class="hint">Hearts show your own yeses. ${esc(p?.display_name || 'Your partner')} can't see them.</p>`;
   return html;
 }
 
@@ -950,25 +1000,25 @@ function ideaDeck(kind) {
     left: { label: 'Not today', icon: I.x },
     right: { label: 'Yes', icon: I.heart },
     stampYes: 'Yes', stampNo: 'Nope',
-    card: (i) => {
-      const pSwiped = votesIn(kind).some((v) => v.idea_id === i.id && v.user_id !== S.uid);
-      return `<div class="meta">${c.when}</div>
+    card: (i) => `<div class="meta">${c.when}</div>
       <h3>${esc(i.title)}</h3>
-      ${i.description ? `<p>${esc(i.description)}</p>` : ''}
-      ${pSwiped ? `<div class="by">${avatar(partner()?.user_id, 'xs')} ${esc(partner()?.display_name)} has swiped this one</div>` : ''}`;
-    },
+      ${i.description ? `<p>${esc(i.description)}</p>` : ''}`,
     onSwipe(item, dir, deck) {
       const vote = { idea_id: item.id, user_id: S.uid, round: roundFor(kind), liked: dir === 'right', household_id: S.me.household_id, created_at: new Date().toISOString() };
       const same = (v) => v.idea_id === vote.idea_id && v.user_id === S.uid && v.round === vote.round;
       S.votes = S.votes.filter((v) => !same(v));
       S.votes.push(vote);
       q(sb.from('votes').upsert(vote, { onConflict: 'idea_id,user_id,round' }));
-      if (dir === 'right') {
-        const m = matchFor(kind);
-        if (m && m.id === item.id) {
-          seenMatch(kind, m);
-          setTimeout(() => { deck.close(); showMatch(kind, m); }, 260);
-          notify('match', kind === 'meal' ? 'Dinner is decided' : "It's a date", `You both picked ${m.title}`, kind === 'meal' ? './#eat' : './#dates');
+      const st = roundState(kind);
+      if (st.done) {
+        // this swipe finished the round for both of us
+        const url = kind === 'meal' ? './#eat' : './#dates';
+        if (st.pick) {
+          seenMatch(kind, st.pick);
+          setTimeout(() => { deck.close(); showMatch(kind, st.pick, st.mutual.length); }, 300);
+          notify('match', kind === 'meal' ? 'Dinner is decided' : "It's a date", `${st.pick.title}. ${pickReason(st.mutual.length)}`, url);
+        } else {
+          notify('match', kind === 'meal' ? 'No dinner match' : 'No date match', "You didn't say yes to any of the same ideas. Swipe again?", url);
         }
       }
       return () => {
@@ -977,9 +1027,10 @@ function ideaDeck(kind) {
       };
     },
     end: () => {
-      const p = partner();
-      if (!p) return { title: 'All swiped', text: 'Once your partner joins, the first idea you both say yes to wins.' };
-      return { title: 'All swiped', text: `No match yet. When ${p.display_name} says yes to one of yours, you'll both see it.` };
+      const st = roundState(kind), p = st.p;
+      if (!p) return { title: 'All swiped', text: 'Once your partner joins and swipes too, one idea you both said yes to gets picked.' };
+      if (st.done) return st.pick ? { title: 'Both done', text: st.pick.title } : { title: 'No match this time', text: "You didn't say yes to any of the same ideas." };
+      return { title: 'All swiped', text: `Waiting for ${p.display_name} to finish. You'll both see the pick then, and nobody sees the other's swipes.` };
     },
   });
 }
@@ -989,11 +1040,11 @@ const seenMatch = (kind, m) => store.set(matchKey(kind, m), '1');
 function checkMatches() {
   if ($('.match') || $('.deck')) return;
   for (const kind of ['meal', 'date']) {
-    const m = matchFor(kind);
-    if (m && !store.get(matchKey(kind, m))) { seenMatch(kind, m); showMatch(kind, m); return; }
+    const st = roundState(kind);
+    if (st.pick && !store.get(matchKey(kind, st.pick))) { seenMatch(kind, st.pick); showMatch(kind, st.pick, st.mutual.length); return; }
   }
 }
-function showMatch(kind, m) {
+function showMatch(kind, m, n = 1) {
   const p = partner();
   haptic();
   const el = document.createElement('div');
@@ -1002,7 +1053,7 @@ function showMatch(kind, m) {
     <div class="pair">${avatar(S.uid)}${avatar(p?.user_id)}</div>
     <div class="when">${kind === 'meal' ? 'Tonight you are eating' : 'Your next date'}</div>
     <h2>${esc(m.title)}</h2>
-    <p>You both said yes.</p>
+    <p>${pickReason(n)}</p>
     <button class="btn" data-a="ok" style="min-width:160px">Nice</button>`;
   $('#layer').appendChild(el);
   raf(() => raf(() => el.classList.add('in')));
@@ -1337,6 +1388,7 @@ function openSearch() {
   renderView(true);
 }
 function closeSearch() {
+  if (!S.searching) return;
   S.searching = false;
   $('#app').classList.remove('searching');
   $('#q').blur();
@@ -1415,6 +1467,14 @@ function openSettings() {
         ${p ? `<div class="row">${avatar(p.user_id, 'sm')}<div class="row-main"><span class="row-title">${esc(p.display_name)}</span></div></div>`
             : `<div class="row"><div class="row-main"><span class="row-title">Invite your partner</span><span class="row-sub wrap">They create an account on their phone and join with this code.</span></div><span class="chip" style="font:800 18px/1 var(--round);letter-spacing:.12em;padding:10px 12px">${esc(S.household?.invite_code)}</span></div>`}
       </div>
+      <label class="field-label">Appearance</label>
+      <div class="seg" id="themeSeg">${[['system', 'Automatic'], ['light', 'Light'], ['dark', 'Dark']].map(([v, l]) => `<button data-theme-v="${v}" class="${(store.get('theme') || 'system') === v ? 'on' : ''}">${l}</button>`).join('')}</div>
+      <div class="group flat" style="margin-top:10px">
+        <label class="row" for="loveSw">
+          <span class="row-main"><span class="row-title">Love theme</span><span class="row-sub">Cream and deep red</span></span>
+          <input type="checkbox" class="switch" id="loveSw" ${store.get('love') === '1' ? 'checked' : ''}>
+        </label>
+      </div>
       <label class="field-label">Notifications</label>
       <div class="group flat">
         <div class="row">
@@ -1434,7 +1494,15 @@ function openSettings() {
     }
     closeSheet(sheet); refresh();
   }
+  $('#loveSw', sheet).addEventListener('change', (e) => { store.set('love', e.target.checked ? '1' : '0'); haptic(); applyTheme(true); });
   sheet.addEventListener('click', async (e) => {
+    const tv = e.target.closest('[data-theme-v]');
+    if (tv) {
+      store.set('theme', tv.dataset.themeV);
+      sheet.querySelectorAll('[data-theme-v]').forEach((b) => b.classList.toggle('on', b === tv));
+      applyTheme(true);
+      return;
+    }
     const a = e.target.closest('[data-a]')?.dataset.a;
     if (a === 'close') close();
     if (a === 'push-on') { if (await enablePush()) { closeSheet(sheet); openSettings(); } }

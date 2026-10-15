@@ -70,8 +70,62 @@
   color-scheme: dark;
 }
 
+/* Love theme: cream paper and deep wine red (light), oxblood night (dark) */
+:root[data-love] {
+  --bg: #f7f0e8; --surface: #fffaf4; --surface-2: #f1e5d9; --ink: #2b1215; --ink-2: #7b5559; --ink-3: #b39b97;
+  --line: rgba(90, 22, 30, 0.12); --glass: rgba(255, 250, 244, 0.78); --glass-edge: rgba(255, 255, 255, 0.92);
+  --glass-shadow: 0 10px 34px rgba(90, 22, 30, 0.16), 0 1px 3px rgba(90, 22, 30, 0.08);
+  --pill: #8f1b2f; --pill-ink: #fff7f0; --scrim: rgba(45, 10, 16, 0.32);
+  --deck-bg: rgba(247, 240, 232, 0.97); --tab-on: #fffaf4; --on-card: rgba(90, 22, 30, 0.08); --card-rule: rgba(90, 22, 30, 0.13);
+  --link: #9c1c32; --warn: #c42b3a; --pin: #c4831a; --yes: #2f8a5b;
+  --h0: #f6d8c6; --h1: #f2c3c3; --h2: #ead1d9; --h3: #f3e1c6; --h4: #e8b8b4; --h5: #efd2be;
+  --card-ink: #3b1419; --card-ink-2: rgba(59, 20, 25, 0.62);
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root[data-love]:not([data-theme="light"]) {
+    --bg: #12070a; --surface: #221114; --surface-2: #321b1f; --ink: #f8ece7; --ink-2: #c8aaa7; --ink-3: #87696a;
+    --line: rgba(255, 220, 220, 0.1); --glass: rgba(42, 18, 22, 0.74); --glass-edge: rgba(255, 220, 220, 0.12);
+    --glass-shadow: 0 10px 34px rgba(0, 0, 0, 0.55); --pill: #c9364c; --pill-ink: #ffffff; --scrim: rgba(0, 0, 0, 0.55);
+    --deck-bg: rgba(18, 7, 10, 0.96); --tab-on: rgba(255, 220, 220, 0.14); --on-card: rgba(255, 230, 230, 0.12); --card-rule: rgba(255, 230, 230, 0.14);
+    --link: #ff7d8e; --warn: #ff5a66; --pin: #f0a948; --yes: #3fbf7f;
+    --h0: #4b1f23; --h1: #5b2229; --h2: #45222f; --h3: #4c3520; --h4: #622a2a; --h5: #4b2e25;
+    --card-ink: #fbeeea; --card-ink-2: rgba(251, 238, 234, 0.66);
+    color-scheme: dark;
+  }
+}
+:root[data-love][data-theme="dark"] {
+  --bg: #12070a; --surface: #221114; --surface-2: #321b1f; --ink: #f8ece7; --ink-2: #c8aaa7; --ink-3: #87696a;
+  --line: rgba(255, 220, 220, 0.1); --glass: rgba(42, 18, 22, 0.74); --glass-edge: rgba(255, 220, 220, 0.12);
+  --glass-shadow: 0 10px 34px rgba(0, 0, 0, 0.55); --pill: #c9364c; --pill-ink: #ffffff; --scrim: rgba(0, 0, 0, 0.55);
+  --deck-bg: rgba(18, 7, 10, 0.96); --tab-on: rgba(255, 220, 220, 0.14); --on-card: rgba(255, 230, 230, 0.12); --card-rule: rgba(255, 230, 230, 0.14);
+  --link: #ff7d8e; --warn: #ff5a66; --pin: #f0a948; --yes: #3fbf7f;
+  --h0: #4b1f23; --h1: #5b2229; --h2: #45222f; --h3: #4c3520; --h4: #622a2a; --h5: #4b2e25;
+  --card-ink: #fbeeea; --card-ink-2: rgba(251, 238, 234, 0.66);
+  color-scheme: dark;
+}
+/* a short cross-fade while the theme changes */
+.theme-anim, .theme-anim * { transition: background-color 0.35s ease, color 0.35s ease, border-color 0.35s ease, box-shadow 0.35s ease, fill 0.35s ease !important; }
+
+/* iOS-style switch */
+.switch {
+  -webkit-appearance: none; appearance: none; flex: none;
+  width: 51px; height: 31px; border-radius: 16px; margin: 0;
+  background: var(--surface-2); box-shadow: inset 0 0 0 1px var(--line);
+  position: relative; cursor: pointer;
+  transition: background-color 0.25s;
+}
+.switch::before {
+  content: ""; position: absolute; top: 2px; left: 2px; width: 27px; height: 27px; border-radius: 50%;
+  background: #ffffff; box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+  transition: transform 0.3s var(--spring);
+}
+.switch:checked { background: var(--pill); box-shadow: none; }
+.switch:checked::before { transform: translate3d(20px, 0, 0); }
+label.row { cursor: pointer; }
+
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-html, body { margin: 0; height: 100%; }
+html, body { margin: 0; height: 100%; overflow: hidden; }
 body {
   background: var(--bg);
   color: var(--ink);
@@ -568,3 +622,5 @@ button.row:active, .srow-fg .row-main:active { background-color: var(--surface-2
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { transition-duration: 0.01ms !important; animation-duration: 0.01ms !important; }
 }
+:root[data-love] .deck-btn.yes .ring { background: var(--pill); color: var(--pill-ink); }
+:root[data-love] .stamp.yes { color: var(--pill); }
