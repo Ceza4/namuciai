@@ -349,12 +349,40 @@ svg { display: block; flex: none; }
 .sheet-wrap.in .sheet { transform: none; }
 .sheet.drag, .sheet-wrap .scrim.drag { transition: none; }
 .grabber { position: absolute; top: 6px; left: 50%; width: 38px; height: 5px; margin-left: -19px; border-radius: 3px; background: var(--ink-3); opacity: 0.5; }
-.sheet-bar { display: flex; align-items: center; gap: 4px; padding: 16px 8px 6px; touch-action: none; }
-.sheet-bar .ttl { flex: 1; text-align: center; font-weight: 650; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.sheet-bar button { min-width: 76px; padding: 10px 8px; font-weight: 600; color: var(--link); text-align: left; }
-.sheet-bar button.end { text-align: right; }
-.sheet-bar button.strong { font-weight: 750; }
-.sheet-bar button.icon { min-width: 44px; display: grid; place-items: center; }
+.sheet-bar {
+  display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 8px;
+  padding: 18px 14px 8px; touch-action: none;
+}
+.sheet-bar > :first-child { justify-self: start; }
+.sheet-bar > :last-child { justify-self: end; }
+.sheet-bar .ttl { font-weight: 650; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 52vw; }
+.bar-group { display: flex; gap: 8px; transition: opacity 0.25s var(--ease), transform 0.3s var(--spring); }
+.bar-group.off { opacity: 0; transform: scale(0.85); pointer-events: none; }
+.bar-btn {
+  height: 38px; min-width: 38px; padding: 0 16px; border-radius: 19px;
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  font-size: 16px; font-weight: 600; color: var(--ink);
+  transition: transform 0.22s var(--spring), background-color 0.2s, color 0.2s, opacity 0.15s;
+}
+.bar-btn:active { transform: scale(0.9); }
+.bar-btn.plain { padding: 0 6px; color: var(--link); }
+.bar-btn.plain:active { transform: none; opacity: 0.5; }
+.bar-btn.primary { background: var(--tab-hue); color: var(--card-ink); font-weight: 700; }
+.bar-btn.icon { width: 38px; padding: 0; background: var(--surface); color: var(--ink-2); box-shadow: 0 0 0 0.5px var(--line); }
+.bar-btn.icon.danger { color: var(--warn); }
+.bar-btn.icon.pin svg { transition: transform 0.4s var(--spring); }
+.bar-btn.icon.pin.on { background: color-mix(in srgb, var(--pin) 22%, var(--surface)); color: var(--pin); box-shadow: none; }
+.bar-btn.icon.pin.on svg { transform: rotate(-28deg); }
+
+/* press feedback everywhere, without layout shifts */
+.tab:active { transform: scale(0.92); }
+.tab { transition: color 0.2s, transform 0.2s var(--spring); }
+button.row, .row-main { transition: background-color 0.3s; }
+button.row:active, .srow-fg .row-main:active { background-color: var(--surface-2); transition: none; }
+.srow-fg .row-main { border-radius: 10px; margin: -6px -8px; padding: 6px 8px; }
+.text-btn, .sec .link { transition: opacity 0.15s; }
+.text-btn:active, .sec .link:active { opacity: 0.5; }
+.chip { transition: transform 0.2s var(--spring); }
 .sheet-body {
   flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; overscroll-behavior: contain;
   padding: 6px 18px calc(var(--safe-b) + 40px);

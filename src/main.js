@@ -715,10 +715,12 @@ function openNote(id) {
   let changed = false, saving = null, saveTimer, finished = false;
   const sheet = openSheet(`
     <div class="sheet-bar">
-      <button class="icon" data-a="del" aria-label="Delete note" style="color:var(--warn)" ${note ? '' : 'hidden'}>${svg(I.trash, 22)}</button>
+      <div class="bar-group ${note ? '' : 'off'}" id="noteTools">
+        <button class="bar-btn icon danger" data-a="del" aria-label="Delete note">${svg(I.trash, 20, 2)}</button>
+        <button class="bar-btn icon pin ${note?.pinned ? 'on' : ''}" data-a="pin" aria-label="Pin note" aria-pressed="${!!note?.pinned}">${svg(I.pin, 20, 2)}</button>
+      </div>
       <div class="ttl"></div>
-      <button class="icon" data-a="pin" aria-label="Pin note" style="color:${note?.pinned ? 'var(--pin)' : 'var(--ink-3)'}" ${note ? '' : 'hidden'}>${svg(I.pin, 22)}</button>
-      <button class="end strong" data-a="done">Done</button>
+      <button class="bar-btn primary" data-a="done">Done</button>
     </div>
     <div class="sheet-body"><div>
       <div class="note-foot">${note ? `${avatar(note.updated_by, 'xs')} Edited ${ago(note.updated_at)} by ${esc(nameOf(note.updated_by))}` : ''}</div>
@@ -737,7 +739,7 @@ function openNote(id) {
       note = await saving;
       if (note) {
         S.notes.unshift(note);
-        sheet.querySelectorAll('.sheet-bar [hidden]').forEach((x) => (x.hidden = false));
+        $('#noteTools', sheet).classList.remove('off');
       }
     } else {
       Object.assign(note, patch);
@@ -769,7 +771,9 @@ function openNote(id) {
     if (a === 'done') finish();
     if (a === 'pin' && note) {
       note.pinned = !note.pinned;
-      e.target.closest('button').style.color = note.pinned ? 'var(--pin)' : 'var(--ink-3)';
+      const pb = e.target.closest('button');
+      pb.classList.toggle('on', note.pinned);
+      pb.setAttribute('aria-pressed', String(note.pinned));
       haptic();
       q(sb.from('notes').update({ pinned: note.pinned }).eq('id', note.id));
     }
@@ -1145,9 +1149,9 @@ function openChore(id) {
   const p = partner();
   const sheet = openSheet(`
     <div class="sheet-bar">
-      <button data-a="cancel">Cancel</button>
+      <button class="bar-btn plain" data-a="cancel">Cancel</button>
       <div class="ttl">${c ? 'Edit chore' : 'New chore'}</div>
-      <button class="end strong" data-a="save">${c ? 'Save' : 'Add'}</button>
+      <button class="bar-btn primary" data-a="save">${c ? 'Save' : 'Add'}</button>
     </div>
     <div class="sheet-body"><div>
       <div class="edit-card" style="background:${hueOf(c?.id || 'new-chore')};min-height:170px">
@@ -1262,9 +1266,9 @@ function openCard(kind, id) {
   const tempHue = () => hueOf('new-' + kind + '-' + added);
   const sheet = openSheet(`
     <div class="sheet-bar">
-      <button data-a="cancel">${item ? 'Cancel' : 'Done'}</button>
+      <button class="bar-btn plain" data-a="cancel">${item ? 'Cancel' : 'Done'}</button>
       <div class="ttl">${item ? 'Edit card' : 'New ' + k.label}</div>
-      <button class="end strong" data-a="save">${item ? 'Save' : 'Add'}</button>
+      <button class="bar-btn primary" data-a="save">${item ? 'Save' : 'Add'}</button>
     </div>
     <div class="sheet-body"><div>
       <div class="edit-card" id="ec" style="background:${item ? hueOf(item.id) : tempHue()}">
@@ -1399,8 +1403,8 @@ function openSettings() {
   const pushOn = DEMO || (pushSupported() && Notification.permission === 'granted');
   const sheet = openSheet(`
     <div class="sheet-bar">
-      <button></button><div class="ttl">Home</div>
-      <button class="end strong" data-a="close">Done</button>
+      <span></span><div class="ttl">Home</div>
+      <button class="bar-btn primary" data-a="close">Done</button>
     </div>
     <div class="sheet-body"><div>
       <label class="field-label" for="myname">Your name</label>
