@@ -724,3 +724,60 @@ button.row:active, .srow-fg .row-main:active { background-color: var(--surface-2
 .copy { display: inline-flex; align-items: center; gap: 6px; margin-top: 8px; height: 32px; padding: 0 12px; border-radius: 16px; background: var(--surface-2); font-size: 14px; font-weight: 600; color: var(--link); }
 .copy:active { opacity: 0.6; }
 .sec .link + .count, .sec .count + .link { margin-left: 4px; }
+
+/* ---------- love notes ---------- */
+:root { --love-a: #b0203a; --love-bg: #fbe8ec; --love-card: #fffaf8; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --love-a: #ff7d8e; --love-bg: #1c0a0f; --love-card: #2a1419; } }
+:root[data-theme="dark"] { --love-a: #ff7d8e; --love-bg: #1c0a0f; --love-card: #2a1419; }
+.love-btn { color: var(--love-a); transition: transform 0.2s var(--spring); }
+.love-btn svg { fill: currentColor; }
+.love-btn:active { transform: scale(0.86); }
+.love-compose { border-radius: 24px; padding: 18px 20px; background: var(--love-card); box-shadow: 0 0 0 0.5px var(--line), 0 10px 30px rgba(120, 20, 40, 0.08); margin-top: 6px; }
+.love-to { display: flex; align-items: center; gap: 8px; font-weight: 600; color: var(--ink-2); font-size: 15px; margin-bottom: 8px; }
+.love-compose textarea { width: 100%; border: 0; outline: 0; background: transparent; font: 700 24px/1.25 var(--round); color: var(--ink); padding: 0; min-height: 96px; overflow: hidden; }
+.love-compose textarea::placeholder { color: var(--ink-3); }
+.love-quick { margin-top: 14px; }
+.bar-btn.primary.love-send { background: var(--love-a); color: #ffffff; }
+.bar-btn:disabled { opacity: 0.4; }
+.love-pop {
+  position: fixed; inset: 0; z-index: 90;
+  display: grid; place-items: center; padding: 28px;
+  background: var(--love-bg);
+  opacity: 0; transition: opacity 0.35s ease;
+}
+.love-pop.in { opacity: 1; }
+.love-pop.out { opacity: 0; }
+.love-card {
+  position: relative; width: 100%; max-width: 380px;
+  border-radius: 32px; padding: 26px 24px 22px;
+  background: var(--love-card); color: var(--ink);
+  box-shadow: 0 24px 60px rgba(120, 20, 40, 0.22);
+  transform: translate3d(0, 40px, 0) scale(0.92); opacity: 0;
+  transition: transform 0.6s var(--spring), opacity 0.35s ease;
+}
+.love-pop.in .love-card { transform: none; opacity: 1; transition-delay: 0.08s; }
+.love-pop.out .love-card { transform: translate3d(0, -30px, 0) scale(0.96); opacity: 0; transition-delay: 0s; }
+.love-from { display: flex; align-items: center; gap: 8px; font-weight: 650; color: var(--love-a); font-size: 15px; }
+.love-from span { margin-left: auto; color: var(--ink-3); font-weight: 500; font-size: 13px; }
+.love-msg { font: 800 30px/1.18 var(--round); letter-spacing: -0.015em; margin: 18px 0 24px; overflow-wrap: anywhere; text-wrap: balance; white-space: pre-line; }
+.love-close { width: 100%; background: var(--love-a); color: #ffffff; }
+.love-close svg { fill: currentColor; }
+.love-float { position: absolute; inset: 0; overflow: hidden; pointer-events: none; }
+.love-float i {
+  position: absolute; bottom: -40px; left: var(--x); color: var(--love-a); opacity: 0;
+  animation: floatUp 5.5s ease-in var(--d) infinite;
+}
+.love-float i svg { fill: currentColor; transform: scale(var(--s)); }
+@keyframes floatUp {
+  0% { transform: translate3d(0, 0, 0) rotate(-10deg); opacity: 0; }
+  15% { opacity: 0.35; }
+  100% { transform: translate3d(14px, -105vh, 0) rotate(14deg); opacity: 0; }
+}
+.burst { position: fixed; width: 0; height: 0; z-index: 95; pointer-events: none; }
+.burst i { position: absolute; left: -9px; top: -9px; color: var(--love-a); animation: burst 1.1s cubic-bezier(0.2, 0.7, 0.3, 1) var(--d) both; }
+.burst i svg { fill: currentColor; }
+@keyframes burst {
+  0% { transform: translate3d(0, 0, 0) scale(0.3); opacity: 0; }
+  20% { opacity: 1; }
+  100% { transform: translate3d(var(--dx), -150px, 0) scale(var(--s)); opacity: 0; }
+}

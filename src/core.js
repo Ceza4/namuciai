@@ -56,7 +56,7 @@ export const fmtTime = (ts) => new Date(ts).toLocaleTimeString(locale(), { hour:
 /* ---------------- state ---------------- */
 export const S = {
   uid: null, email: null, me: null, household: null, members: [],
-  notes: [], shop: [], ideas: [], votes: [], chores: [], log: [], plans: [], picks: [],
+  notes: [], shop: [], ideas: [], votes: [], chores: [], log: [], plans: [], picks: [], love: [],
   tab: 'shop', searching: false, hold: 0, dirty: false, lastHtml: '', online: navigator.onLine,
 };
 export const member = (uid) => S.members.find((m) => m.user_id === uid);
@@ -205,7 +205,7 @@ export const db = {
 
 /* ---------------- local copy, so the app opens without signal ---------------- */
 const CKEY = 'namuciai-cache';
-const CACHED = ['household', 'members', 'notes', 'shop', 'ideas', 'votes', 'chores', 'log', 'plans', 'picks'];
+const CACHED = ['household', 'members', 'notes', 'shop', 'ideas', 'votes', 'chores', 'log', 'plans', 'picks', 'love'];
 let cacheTimer;
 export function saveCache() {
   clearTimeout(cacheTimer);

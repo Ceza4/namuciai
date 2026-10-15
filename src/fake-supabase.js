@@ -22,7 +22,7 @@ function seed() {
       { user_id: ME, household_id: HID, display_name: 'Matas', color: 'blue', created_at: iso(now - 9e6) },
       { user_id: PA, household_id: HID, display_name: 'Urtė', color: 'rose', created_at: iso(now - 8e6) },
     ],
-    notes: [], shop_items: [], ideas: [], votes: [], chores: [], chore_log: [], push_subs: [], plans: [], picks: [],
+    notes: [], shop_items: [], ideas: [], votes: [], chores: [], chore_log: [], push_subs: [], plans: [], picks: [], love_notes: [],
   };
   const note = (title, body, by, ago, pinned = false) => db.notes.push({ id: uid(), household_id: HID, title, body, pinned, updated_by: by, created_at: iso(now - ago - 1e6), updated_at: iso(now - ago) });
   note('Weekend', 'Saturday: market in the morning\nCall grandma\nReturn the drill to Tomas', PA, 20 * 60e3, true);
@@ -79,7 +79,7 @@ function defaults(t, r) {
   const o = { ...r };
   if (!['votes', 'chore_log', 'members', 'picks'].includes(t) && !o.id) o.id = uid();
   o.created_at ??= new Date().toISOString();
-  if (['notes', 'shop_items', 'ideas', 'votes', 'chores', 'chore_log', 'plans', 'picks'].includes(t)) o.household_id ??= HID;
+  if (['notes', 'shop_items', 'ideas', 'votes', 'chores', 'chore_log', 'plans', 'picks', 'love_notes'].includes(t)) o.household_id ??= HID;
   if (t === 'notes') { o.pinned ??= false; o.updated_at ??= o.created_at; o.updated_by ??= ME; o.title ??= ''; o.body ??= ''; }
   if (t === 'shop_items') { o.status ??= 'idle'; o.description ??= ''; o.last_swiped_at ??= null; o.qty ??= 1; o.aisle ??= 'other'; o.image_url ??= null; }
   if (t === 'ideas') { o.description ??= ''; o.ingredients ??= []; o.image_url ??= null; }
@@ -113,6 +113,11 @@ class Query {
       out = rows.filter(hit);
       if (this.ord) { const [k, asc] = this.ord; out.sort((a, b) => (a[k] < b[k] ? -1 : a[k] > b[k] ? 1 : 0) * (asc ? 1 : -1)); }
       if (this.lim) out = out.slice(0, this.lim);
+    } else if ((this.op === 'insert') && this.t === 'love_notes') {
+      const list = Array.isArray(this.p) ? this.p : [this.p];
+      out = list.map((r) => { const o = defaults(this.t, copy(r)); rows.push(o); return o; });
+      // Urtė opens the app a few seconds later and reads it
+      setTimeout(() => { const ids = new Set(out.map((x) => x.id)); db.love_notes = db.love_notes.filter((x) => !ids.has(x.id)); emit('love_notes'); }, 5000);
     } else if (this.op === 'insert' || this.op === 'upsert') {
       const list = Array.isArray(this.p) ? this.p : [this.p];
       out = list.map((r) => {
@@ -191,6 +196,10 @@ export function createClient() {
           emit('notes');
           onIncoming('Urtė updated a note', 'Weekend');
         }, 9000);
+        setTimeout(() => {
+          db.love_notes.push({ id: uid(), household_id: HID, from_user: PA, to_user: ME, message: 'Labas, gražuoli! Can’t wait for Saturday ❤️', created_at: new Date().toISOString() });
+          emit('love_notes');
+        }, 20000);
       },
     },
   };

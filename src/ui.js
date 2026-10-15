@@ -1,5 +1,5 @@
 // Reusable interface pieces: avatars, headers, page sheets, swipe rows and the card deck.
-import { $, esc, svg, I, S, member, hueOf, raf, haptic, holdOn, holdOff, reduceMotion, refresh } from './core.js';
+import { $, esc, svg, I, S, member, partner, hueOf, raf, haptic, holdOn, holdOff, reduceMotion, refresh } from './core.js';
 import { t } from './i18n.js';
 
 export function avatar(uid, size = '') {
@@ -12,6 +12,7 @@ export function header(title, addAction, extra = '') {
   return `<header class="lt">
     <h1>${title}</h1>
     ${extra}
+    ${partner() ? `<button class="circle-btn love-btn" data-a="love-new" aria-label="${esc(t('Send a love note'))}">${svg(I.heart, 21, 2.2)}</button>` : ''}
     ${addAction ? `<button class="circle-btn tint" data-a="${addAction}" aria-label="${esc(t('Add'))}">${svg(I.plus, 22, 2.3)}</button>` : ''}
     <button class="press" data-a="settings" aria-label="${esc(t('Settings'))}" style="border-radius:50%">${avatar(S.uid)}</button>
   </header>`;

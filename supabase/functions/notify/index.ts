@@ -11,7 +11,7 @@ const cors = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
-const QUIET_MIN: Record<string, number> = { note: 15, chore: 5, match: 0, test: 0, daily: 600, shop: 30, plan: 0, remind: 0 };
+const QUIET_MIN: Record<string, number> = { note: 15, chore: 5, match: 0, test: 0, daily: 600, shop: 30, plan: 0, remind: 0, love: 1 };
 
 const admin = createClient(
   Deno.env.get("SUPABASE_URL")!,

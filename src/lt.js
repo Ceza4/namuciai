@@ -109,6 +109,13 @@ export const LT = {
   'When': 'Kada', 'Repeats': 'Kartojasi', 'Once': 'Vieną kartą', 'Due date (optional)': 'Terminas (nebūtina)', 'Delete chore': 'Ištrinti darbą', 'Give the chore a name': 'Įrašyk darbo pavadinimą',
   'Pick at least one day': 'Pasirink bent vieną dieną', '{name} gave you a chore': '{name} tau paskyrė darbą',
 
+  // love notes
+  'Send a love note': 'Siųsti meilės žinutę', 'Love note': 'Meilės žinutė', 'Send': 'Siųsti', 'To {name}': 'Kam: {name}', 'Write something sweet…': 'Parašyk kažką mielo…',
+  'Thinking of you': 'Galvoju apie tave', 'I love you': 'Myliu tave', 'Can’t wait to see you': 'Nekantrauju tave pamatyti', 'You’re the best': 'Tu geriausias',
+  'It pops up once when {name} opens the app, then it disappears for good.': 'Žinutė vieną kartą iššoks, kai {name} atidarys programėlę, ir tada išnyks visam laikui.',
+  '{name} sent you a love note': '{name} atsiuntė tau meilės žinutę', 'Open Namučiai to read it': 'Atidaryk Namučius, kad perskaitytum', 'Sent to {name}': 'Išsiųsta: {name}',
+  'From {name}': 'Nuo {name}', '{name} read your love note': '{name} perskaitė tavo žinutę',
+
   // settings
   'Home': 'Namai', 'People': 'Žmonės', 'Invite your partner': 'Pakviesk partnerį', 'They create an account on their phone and join with this code.': 'Partneris susikuria paskyrą savo telefone ir prisijungia su šiuo kodu.',
   'Appearance': 'Išvaizda', 'Automatic': 'Automatinė', 'Light': 'Šviesi', 'Dark': 'Tamsi', 'Love theme': 'Meilės tema', 'Cream and deep red': 'Kreminė ir tamsiai raudona', 'Language': 'Kalba',
