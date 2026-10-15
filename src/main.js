@@ -236,7 +236,7 @@ function renderInstall() {
     <ol class="steps">
       <li><div>Tap <span class="ic">${svg(I.share, 20)}</span> <b>Share</b> in Safari's toolbar. You may need to tap <b>•••</b> first.</div></li>
       <li><div>Scroll down and tap <b>Add to Home Screen</b>.</div></li>
-      <li><div>Keep <b>Open as Web App</b> switched on, then tap <b>Add</b>.</div></li>
+      <li><div>Tap <b>Add</b>. If you see an <b>Open as Web App</b> switch, keep it on.</div></li>
       <li><div>Open Namučiai from your Home Screen and sign in there.</div></li>
     </ol>
     <button class="text-btn" data-a="skip-install">Use it in Safari for now</button>
