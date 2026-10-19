@@ -1,5 +1,6 @@
 // The card editor shared by shopping items and dinner/date ideas.
-import { $, esc, svg, I, S, db, uuid, refresh, toast, haptic, hueOf, uploadImage, pickImage, on } from './core.js';
+import { $, esc, svg, I, S, db, uuid, refresh, toast, haptic, hueOf, uploadImage, pickImage, on, store } from './core.js';
+import { shoppingNow } from './shop.js';
 import { t, lang } from './i18n.js';
 import { openSheet, closeSheet, autoGrow, chips, ROWS } from './ui.js';
 import { AISLES, guessAisle } from './aisles.js';
@@ -31,6 +32,9 @@ export function openCard(kind, id) {
   let added = 0, image = item?.image_url || null, uploading = false;
   let aisle = item?.aisle || 'other', aisleTouched = !!item && item.aisle !== 'other';
   let qty = item?.qty || 1;
+  /* new shopping cards can skip the deck and go straight into the cart (remembered; on by default while someone is at the shop) */
+  const directSaved = store.get('shop-direct');
+  let direct = kind === 'shop' && !item && (directSaved ? directSaved === '1' : !!shoppingNow());
   const tempHue = () => hueOf('new-' + kind + '-' + added);
   const sheet = openSheet(`
     <div class="sheet-bar">
@@ -51,7 +55,9 @@ export function openCard(kind, id) {
         <label class="field-label">${t('Aisle')}</label>
         ${chips('aisle', AISLES.map((a) => [a.id, lang === 'lt' ? a.lt : a.en]), aisle)}
         <label class="field-label">${t('How many')}</label>
-        <div class="stepper big"><button type="button" data-a="q-" aria-label="${esc(t('Fewer'))}">${svg(I.minus, 18, 2.6)}</button><b id="qtyV">${qty}</b><button type="button" data-a="q+" aria-label="${esc(t('More'))}">${svg(I.plus, 18, 2.6)}</button></div>` : ''}
+        <div class="stepper big"><button type="button" data-a="q-" aria-label="${esc(t('Fewer'))}">${svg(I.minus, 18, 2.6)}</button><b id="qtyV">${qty}</b><button type="button" data-a="q+" aria-label="${esc(t('More'))}">${svg(I.plus, 18, 2.6)}</button></div>
+        ${!item ? `<label class="direct-row" for="directSw"><span class="direct-ico">${svg(I.cart, 20, 2.2)}</span><span class="row-main"><span class="row-title">${t('Straight to the cart')}</span><span class="row-sub">${t('Skip the swiping for this one')}</span></span><input type="checkbox" class="switch" id="directSw" ${direct ? 'checked' : ''}></label>`
+          : item.status !== 'cart' ? `<button type="button" class="btn wide" data-a="to-cart" style="margin-top:18px">${svg(I.cart, 18, 2.2)} ${t('Put in the cart now')}</button>` : ''}` : ''}
       ${kind === 'meal' ? `
         <label class="field-label" for="ingr">${t('Ingredients, one per line')}</label>
         <textarea class="input" id="ingr" rows="4" placeholder="${esc(t('Spaghetti\nEggs\nParmesan'))}">${esc((item?.ingredients || []).join('\n'))}</textarea>` : ''}
@@ -86,7 +92,7 @@ export function openCard(kind, id) {
       return;
     }
     const full = { id: uuid(), household_id: S.me.household_id, created_by: S.uid, created_at: new Date().toISOString(), ...row };
-    if (kind === 'shop') Object.assign(full, { status: 'idle', last_swiped_at: null });
+    if (kind === 'shop') Object.assign(full, direct ? { status: 'cart', last_swiped_at: full.created_at } : { status: 'idle', last_swiped_at: null });
     else full.kind = kind;
     k.list().push(full);
     db.insert(k.table, full);
@@ -96,10 +102,12 @@ export function openCard(kind, id) {
     autoGrow(tt); autoGrow(d); paintImage(); paintAisle();
     if ($('#qtyV', sheet)) $('#qtyV', sheet).textContent = '1';
     $('#ec', sheet).style.background = tempHue();
-    $('#addedNote', sheet).textContent = added === 1 ? t('Added “{title}”. Add another or tap Done.', { title }) : t('{n} cards added. Add another or tap Done.', { n: added });
+    $('#addedNote', sheet).textContent = direct ? t('“{title}” is in the cart. Add another or tap Done.', { title })
+      : added === 1 ? t('Added “{title}”. Add another or tap Done.', { title }) : t('{n} cards added. Add another or tap Done.', { n: added });
     tt.focus();
     refresh();
   }
+  $('#directSw', sheet)?.addEventListener('change', (e) => { direct = e.target.checked; store.set('shop-direct', direct ? '1' : '0'); haptic(); });
   sheet.addEventListener('click', async (e) => {
     const chip = e.target.closest('[data-chips="aisle"] button');
     if (chip) { aisle = chip.dataset.v; aisleTouched = true; paintAisle(); haptic(); return; }
@@ -107,6 +115,13 @@ export function openCard(kind, id) {
     if (a === 'cancel') closeSheet(sheet);
     if (a === 'save') save();
     if (a === 'delete') { closeSheet(sheet); deleteCard(item.id); }
+    if (a === 'to-cart' && item) {
+      const title = tt.value.trim() || item.title;
+      Object.assign(item, { title, description: d.value.trim(), image_url: image, aisle, qty, status: 'cart', last_swiped_at: new Date().toISOString() });
+      db.update(k.table, { id: item.id }, { title, description: item.description, image_url: image, aisle, qty, status: 'cart', last_swiped_at: item.last_swiped_at });
+      closeSheet(sheet); haptic(); refresh();
+      toast(t('“{title}” is in the cart', { title }));
+    }
     if (a === 'q-' || a === 'q+') { qty = Math.max(1, Math.min(99, qty + (a === 'q+' ? 1 : -1))); $('#qtyV', sheet).textContent = qty; haptic(); }
     if (a === 'img-x') { image = null; paintImage(); }
     if (a === 'img') {

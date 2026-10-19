@@ -819,3 +819,9 @@ button.row:active, .srow-fg .row-main:active { background-color: var(--surface-2
 .mem-add { aspect-ratio: 1; border-radius: 14px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; background: var(--surface); box-shadow: 0 0 0 0.5px var(--line); color: var(--ink-2); font-size: 13px; font-weight: 600; transition: transform 0.2s var(--spring); }
 .mem-add:active { transform: scale(0.95); }
 .mem-add.only { grid-column: span 3; aspect-ratio: 16 / 7; font-size: 15px; }
+
+/* "straight to the cart" toggle in the new shopping card sheet */
+.direct-row { display: flex; align-items: center; gap: 12px; margin-top: 18px; padding: 12px 14px; border-radius: 18px; background: var(--surface); box-shadow: inset 0 0 0 1px var(--line); cursor: pointer; }
+.direct-ico { width: 38px; height: 38px; border-radius: 12px; display: grid; place-items: center; flex: none; background: var(--surface-2); color: var(--ink-2); transition: background-color .25s, color .25s; }
+.direct-row:has(.switch:checked) .direct-ico { background: var(--pill); color: var(--pill-ink, #fff); }
+.btn.wide { width: 100%; justify-content: center; }
