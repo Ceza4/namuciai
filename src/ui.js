@@ -1,5 +1,5 @@
 // Reusable interface pieces: avatars, headers, page sheets, swipe rows and the card deck.
-import { $, esc, svg, I, S, member, partner, hueOf, raf, haptic, holdOn, holdOff, reduceMotion, refresh } from './core.js';
+import { $, esc, svg, I, S, member, partner, hueOf, raf, haptic, holdOn, holdOff, reduceMotion, refresh, fling } from './core.js';
 import { t } from './i18n.js';
 
 export function avatar(uid, size = '') {
@@ -45,17 +45,15 @@ export function openSheet(html, { onDismiss } = {}) {
   scrim.addEventListener('click', dismiss);
   let d = null, frame = 0;
   const bar = sheet.querySelector('.sheet-bar');
-  bar.addEventListener('pointerdown', (e) => {
-    if (e.target.closest('button')) return;
-    d = { y0: e.clientY, dy: 0, h: sheet.offsetHeight, ly: e.clientY, lt: performance.now(), v: 0, id: e.pointerId };
-    try { bar.setPointerCapture(e.pointerId); } catch {}
+  const begin = (y, id) => {
+    d = { y0: y, dy: 0, h: sheet.offsetHeight, ly: y, lt: performance.now(), v: 0, id };
     sheet.classList.add('drag'); scrim.classList.add('drag');
-  });
-  bar.addEventListener('pointermove', (e) => {
-    if (!d || e.pointerId !== d.id) return;
+  };
+  const move = (y) => {
     const tm = performance.now();
-    d.v = (e.clientY - d.ly) / Math.max(1, tm - d.lt); d.ly = e.clientY; d.lt = tm;
-    const dy = e.clientY - d.y0;
+    const dt = Math.max(1, tm - d.lt);
+    d.v = d.v * 0.4 + ((y - d.ly) / dt) * 0.6; d.ly = y; d.lt = tm;
+    const dy = y - d.y0;
     d.dy = dy > 0 ? dy : -Math.sqrt(-dy) * 2;
     if (!frame) frame = raf(() => {
       frame = 0;
@@ -63,17 +61,52 @@ export function openSheet(html, { onDismiss } = {}) {
       sheet.style.transform = `translate3d(0,${d.dy}px,0)`;
       scrim.style.opacity = String(Math.max(0, 1 - d.dy / d.h));
     });
-  });
-  const up = (e) => {
-    if (!d || e.pointerId !== d.id) return;
+  };
+  const release = () => {
     const dd = d; d = null;
     cancelAnimationFrame(frame); frame = 0;
+    if (performance.now() - dd.lt > 80) dd.v = 0; // finger stopped before lifting
     sheet.classList.remove('drag'); scrim.classList.remove('drag');
-    scrim.style.opacity = ''; sheet.style.transform = '';
-    if (dd.dy > dd.h * 0.22 || (dd.v > 0.55 && dd.dy > 40)) dismiss();
+    scrim.style.opacity = '';
+    if (dd.dy > dd.h * 0.25 || (dd.v > 0.5 && dd.dy > 30)) {
+      const f = fling(dd.v, dd.h - dd.dy, { min: 160, max: 340 });
+      sheet.style.transition = `transform ${f.ms}ms ${f.ease}`;
+      scrim.style.transition = `opacity ${f.ms}ms ease-out`;
+      sheet.style.transform = '';
+      dismiss();
+    } else sheet.style.transform = '';
   };
+  bar.addEventListener('pointerdown', (e) => {
+    if (e.target.closest('button')) return;
+    begin(e.clientY, e.pointerId);
+    try { bar.setPointerCapture(e.pointerId); } catch {}
+  });
+  bar.addEventListener('pointermove', (e) => { if (d && e.pointerId === d.id) move(e.clientY); });
+  const up = (e) => { if (d && e.pointerId === d.id) release(); };
   bar.addEventListener('pointerup', up);
   bar.addEventListener('pointercancel', up);
+  /* like iOS: when the content is scrolled to the top, pulling down drags the whole sheet */
+  const body = sheet.querySelector('.sheet-body');
+  if (body) {
+    let t0 = null;
+    body.addEventListener('touchstart', (e) => {
+      if (e.touches.length !== 1 || e.target.closest('.no-drag, .card, .stack, input[type=range]')) { t0 = null; return; }
+      t0 = { x: e.touches[0].clientX, y: e.touches[0].clientY, top: body.scrollTop <= 0, axis: null };
+    }, { passive: true });
+    body.addEventListener('touchmove', (e) => {
+      if (!t0) return;
+      const tc = e.touches[0];
+      if (d && d.id === 'touch') { e.preventDefault(); move(tc.clientY); return; }
+      const dx = tc.clientX - t0.x, dy = tc.clientY - t0.y;
+      // Safari only honours preventDefault before the scroll starts, so claim downward moves at the top right away
+      if (!t0.top || body.scrollTop > 0 || dy < 0 || Math.abs(dx) > Math.abs(dy) + 2) { t0 = null; return; }
+      e.preventDefault();
+      if (dy > 6) { document.activeElement?.blur?.(); begin(tc.clientY, 'touch'); }
+    }, { passive: false });
+    const tend = () => { t0 = null; if (d && d.id === 'touch') release(); };
+    body.addEventListener('touchend', tend);
+    body.addEventListener('touchcancel', tend);
+  }
   return sheet;
 }
 export function closeSheet(sheet) {
@@ -81,8 +114,9 @@ export function closeSheet(sheet) {
   if (!wrap || wrap._closing) return;
   wrap._closing = true;
   document.activeElement?.blur?.();
+  wrap.classList.add('out');
   wrap.classList.remove('in');
-  setTimeout(() => wrap.remove(), 460);
+  setTimeout(() => wrap.remove(), 420);
 }
 
 /* ================================================================== */
@@ -129,16 +163,17 @@ export function initSwipeRows(container) {
     setTimeout(() => { fg.classList.remove('snap'); if (off === 0) row.querySelectorAll('.srow-act').forEach((a) => (a.style.opacity = 0)); done?.(); }, 330);
   };
   const closeOpen = () => { if (!open) return; const o = open; open = null; snap(o.row, o.fg, 0, holdOff); };
-  const commit = (row, fg, side, act) => {
+  const commit = (row, fg, side, act, v = 0, from = 0) => {
     haptic();
     open = null;
     const w = row.offsetWidth;
     if (act.destructive) {
-      fg.classList.add('snap');
+      const f = fling(v, w - Math.abs(from), { min: 160, max: 280 });
+      fg.style.transition = `transform ${f.ms}ms ${f.ease}`;
       fg.style.transform = `translate3d(${side === 'trail' ? -w : w}px,0,0)`;
       const lbl = row.querySelector(`.srow-act.${side} span`);
-      if (lbl) lbl.style.transform = `translate3d(${side === 'trail' ? -(w - REVEAL) : w - REVEAL}px,0,0)`;
-      setTimeout(() => collapse(row, () => { act.run(); holdOff(); }), 230);
+      if (lbl) { lbl.style.transition = fg.style.transition; lbl.style.transform = `translate3d(${side === 'trail' ? -(w - REVEAL) : w - REVEAL}px,0,0)`; }
+      setTimeout(() => collapse(row, () => { act.run(); holdOff(); }), f.ms - 40);
     } else snap(row, fg, 0, () => { act.run(); holdOff(); });
   };
   container.addEventListener('pointerdown', (e) => {
@@ -166,7 +201,7 @@ export function initSwipeRows(container) {
       open = null;
     }
     const tm = performance.now();
-    g.v = (e.clientX - g.lx) / Math.max(1, tm - g.lt); g.lx = e.clientX; g.lt = tm;
+    g.v = g.v * 0.4 + ((e.clientX - g.lx) / Math.max(1, tm - g.lt)) * 0.6; g.lx = e.clientX; g.lt = tm;
     let off = g.base + dx;
     if (off > 0 && !g.acts.lead) off = rubber(off) * 0.4;
     if (off < 0 && !g.acts.trail) off = -rubber(-off) * 0.4;
@@ -185,9 +220,10 @@ export function initSwipeRows(container) {
     swallow = true;
     setTimeout(() => { swallow = false; }, 400);
     cancelAnimationFrame(frame); frame = 0;
+    if (performance.now() - gg.lt > 80) gg.v = 0;
     const off = gg.off, side = off < 0 ? 'trail' : 'lead', act = gg.acts[side];
-    const fling = Math.abs(gg.v) > 0.8 && Math.sign(gg.v) === Math.sign(off) && Math.abs(off) > 70;
-    if (act && (Math.abs(off) > gg.w * 0.52 || fling)) commit(gg.row, gg.fg, side, act);
+    const flung = Math.abs(gg.v) > 0.7 && Math.sign(gg.v) === Math.sign(off) && Math.abs(off) > 60;
+    if (act && (Math.abs(off) > gg.w * 0.52 || flung)) commit(gg.row, gg.fg, side, act, gg.v, off);
     else if (act && Math.abs(off) > 44) {
       const to = side === 'trail' ? -REVEAL : REVEAL;
       open = { row: gg.row, fg: gg.fg, off: to };
@@ -288,11 +324,11 @@ export function openDeck(o) {
     c.querySelector('.stamp.no').style.opacity = dx < 0 ? v : 0;
   }
   function attachDrag(c) {
-    let sx = 0, sy = 0, dx = 0, dy = 0, down = false, frame = 0, lx = 0, lt = 0, v = 0, armed = false;
+    let sx = 0, sy = 0, dx = 0, dy = 0, down = false, frame = 0, lx = 0, ly = 0, lt = 0, v = 0, vy = 0, armed = false, tilt = 1;
     const under = () => live().slice(-2, -1)[0];
     const paint = () => {
       frame = 0;
-      c.style.transform = `translate3d(${dx}px,${dy * 0.35}px,0) rotate(${dx / 16}deg)`;
+      c.style.transform = `translate3d(${dx}px,${dy * 0.45}px,0) rotate(${(dx / 18) * tilt}deg)`;
       stamps(c, dx);
       const u = under();
       if (u) { const p = Math.min(1, Math.abs(dx) / 140); u.style.transform = `translate3d(0,${26 - 26 * p}px,0) scale(${0.95 + 0.05 * p})`; }
@@ -301,7 +337,9 @@ export function openDeck(o) {
     };
     c.onpointerdown = (e) => {
       if (busy || e.target.closest('.no-drag')) return;
-      down = true; sx = lx = e.clientX; sy = e.clientY; lt = performance.now(); dx = dy = v = 0; armed = false;
+      down = true; sx = lx = e.clientX; sy = ly = e.clientY; lt = performance.now(); dx = dy = v = vy = 0; armed = false;
+      const r = c.getBoundingClientRect();
+      tilt = e.clientY > r.top + r.height * 0.62 ? -0.7 : 1; // grabbed low → tips the other way, like a real card
       c.classList.add('drag');
       const u = under(); if (u) u.classList.add('drag');
       try { c.setPointerCapture(e.pointerId); } catch {}
@@ -309,7 +347,8 @@ export function openDeck(o) {
     c.onpointermove = (e) => {
       if (!down) return;
       const tm = performance.now();
-      v = (e.clientX - lx) / Math.max(1, tm - lt); lx = e.clientX; lt = tm;
+      const dt = Math.max(1, tm - lt);
+      v = v * 0.4 + ((e.clientX - lx) / dt) * 0.6; vy = vy * 0.4 + ((e.clientY - ly) / dt) * 0.6; lx = e.clientX; ly = e.clientY; lt = tm;
       dx = e.clientX - sx; dy = e.clientY - sy;
       if (!frame) frame = raf(paint);
     };
@@ -319,13 +358,14 @@ export function openDeck(o) {
       cancelAnimationFrame(frame); frame = 0;
       c.classList.remove('drag');
       const u = under(); if (u) u.classList.remove('drag');
-      if (Math.abs(dx) > 110 || (Math.abs(v) > 0.55 && Math.abs(dx) > 40 && Math.sign(v) === Math.sign(dx))) swipe(dx > 0 ? 'right' : 'left', dy, v);
+      if (performance.now() - lt > 80) v = vy = 0;
+      if (Math.abs(dx) > 110 || (Math.abs(v) > 0.55 && Math.abs(dx) > 40 && Math.sign(v) === Math.sign(dx))) swipe(dx > 0 ? 'right' : 'left', dy, v, dx, vy, tilt);
       else { c.style.transform = restTf(0); stamps(c, 0); if (u) u.style.transform = restTf(1); }
     };
     c.onpointerup = up;
     c.onpointercancel = up;
   }
-  function swipe(dir, dy = 0, v = 0) {
+  function swipe(dir, dy = 0, v = 0, dx = 0, vy = 0, tilt = 1) {
     const c = topCard();
     if (!c || busy) return;
     busy = true;
@@ -334,9 +374,14 @@ export function openDeck(o) {
     c.style.pointerEvents = 'none';
     stamps(c, dir === 'right' ? 120 : -120);
     const w = Math.max(innerWidth, 500) + 260;
-    const speed = Math.min(0.42, Math.max(0.24, 0.42 - Math.abs(v) * 0.08));
-    c.style.transition = `transform ${speed}s cubic-bezier(.3,.6,.4,1), opacity ${speed}s`;
-    c.style.transform = `translate3d(${dir === 'right' ? w : -w}px,${dy * 0.35 + 50}px,0) rotate(${dir === 'right' ? 26 : -26}deg)`;
+    const sgn = dir === 'right' ? 1 : -1;
+    const f = fling(Math.abs(v) > 0.15 ? v : 0, w - Math.abs(dx), { min: 240, max: 440 });
+    if (Math.abs(v) <= 0.15) f.ease = 'cubic-bezier(0.45, 0, 0.6, 1)'; // button tap: wind up, then go
+    const speed = f.ms / 1000;
+    // keep the vertical direction of the throw too
+    const endY = dy * 0.45 + Math.max(-260, Math.min(260, vy * f.ms * 0.5)) + 40;
+    c.style.transition = `transform ${f.ms}ms ${f.ease}, opacity ${f.ms}ms`;
+    c.style.transform = `translate3d(${sgn * w}px,${endY}px,0) rotate(${sgn * 28 * (tilt || 1)}deg)`;
     const item = c._item;
     idx++;
     fill(false);

@@ -39,7 +39,7 @@ export function memoryPrompts() {
 
 function memCard(m) {
   const cover = m.photos?.[0];
-  return `<button class="mem-card" data-a="mem-open" data-id="${m.id}" style="${cover ? `background-image:url('${esc(cover)}')` : `background:${hueOf(m.id)}`}">
+  return `<button class="mem-card" data-key="m:${m.id}" data-a="mem-open" data-id="${m.id}" style="${cover ? `background-image:url('${esc(cover)}')` : `background:${hueOf(m.id)}`}">
     ${m.photos?.length > 1 ? `<span class="mem-count">${svg(I.image, 13, 2.2)} ${m.photos.length}</span>` : ''}
     <span class="mem-cap ${cover ? '' : 'plain'}"><b>${esc(m.title)}</b><span>${esc(fmtRange(m.day, m.day_end))}</span></span>
   </button>`;

@@ -1,5 +1,6 @@
 // Namučiai: boot, sign-in, the shell (tabs, search island), sync and routing.
-import { $, esc, svg, I, S, DEMO, ICON_SRC, sb, q, store, app, ACTIONS, toast, hideToast, raf, reduceMotion, isIOS, standalone, today, addDays, norm, flush, pendingWrites, saveCache, loadCache, db } from './core.js';
+import { morph } from './morph.js';
+import { $, esc, svg, I, S, DEMO, ICON_SRC, sb, q, store, app, ACTIONS, toast, hideToast, raf, reduceMotion, cssVar, isIOS, standalone, today, addDays, norm, flush, pendingWrites, saveCache, loadCache, db } from './core.js';
 import { t, tn, lang } from './i18n.js';
 import { initSwipeRows } from './ui.js';
 import { guessAisle } from './aisles.js';
@@ -318,6 +319,7 @@ function setTab(id) {
   hideToast();
   if (S.searching) closeSearch();
   if (id === S.tab) { $('#view').scrollTo({ top: 0, behavior: 'smooth' }); return; }
+  S.tabDir = Math.sign(tabIds.indexOf(id) - tabIds.indexOf(S.tab));
   S.tab = id;
   store.set('tab', id);
   try { history.replaceState(null, '', '#' + id); } catch {}
@@ -345,7 +347,7 @@ function updateIsland() {
   const idx = tabIds.indexOf(S.tab);
   document.documentElement.style.setProperty('--tab-hue', `var(--h${tabs[idx].hue})`);
   const btns = document.querySelectorAll('#island .tab[data-a="tab"]');
-  $('#tabPill').style.transform = `translate3d(${btns[idx].offsetLeft - 6}px,0,0)`;
+  movePill(btns[idx].offsetLeft - 6, btns[idx]);
   const choreN = S.chores.filter(inMyDeck).length;
   btns.forEach((b, i) => {
     b.classList.toggle('on', i === idx);
@@ -356,6 +358,26 @@ function updateIsland() {
   $('#navbar').textContent = tabs[idx].title;
 }
 
+/* the tab highlight glides to the new tab and stretches a little on the way, like a drop of liquid */
+function movePill(x, btn) {
+  const pill = $('#tabPill');
+  if (x === pill._x) return;
+  const from = pill._x ?? null;
+  pill._x = x;
+  pill.style.transform = `translate3d(${x}px,0,0)`;
+  if (from === null || reduceMotion() || !pill.animate) return;
+  const dist = Math.abs(x - from), mid = from + (x - from) * 0.5;
+  const stretch = 1 + Math.min(0.45, dist / 260);
+  const kf = [
+    { transform: `translate3d(${from}px,0,0) scale(1,1)` },
+    { transform: `translate3d(${mid}px,0,0) scale(${stretch},${(1 / Math.sqrt(stretch)).toFixed(3)})`, offset: 0.35 },
+    { transform: `translate3d(${x}px,0,0) scale(1,1)` },
+  ];
+  try { pill.animate(kf, { duration: 560, easing: cssVar('--spring') || 'ease-out' }); }
+  catch { pill.animate(kf, { duration: 420, easing: 'cubic-bezier(0.2, 1.1, 0.3, 1)' }); }
+  btn.classList.remove('pop'); void btn.offsetWidth; btn.classList.add('pop');
+}
+
 function renderView(enter = false) {
   const el = $('#viewInner');
   if (!el) return;
@@ -363,8 +385,14 @@ function renderView(enter = false) {
     : { notes: () => viewNotes(pushBanner), shop: viewShop, eat: () => viewIdeas('meal'), dates: () => viewIdeas('date'), chores: viewChores }[S.tab]();
   if (html === S.lastHtml && !enter) return;
   S.lastHtml = html;
+  if (!enter) { morph(el, html, { animate: !S.searching && !reduceMotion() }); return; }
   el.innerHTML = html;
-  if (enter && !reduceMotion()) { el.classList.remove('enter'); void el.offsetWidth; el.classList.add('enter'); }
+  if (!reduceMotion()) {
+    const dir = S.tabDir || 0; S.tabDir = 0;
+    el.style.setProperty('--enter-x', dir * 28 + 'px');
+    el.style.setProperty('--enter-y', dir ? '0px' : '10px');
+    el.classList.remove('enter'); void el.offsetWidth; el.classList.add('enter');
+  }
 }
 
 /* ================================================================== */

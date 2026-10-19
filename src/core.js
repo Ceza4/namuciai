@@ -32,6 +32,18 @@ export const store = {
 export const hueOf = (id) => { let h = 0; for (const c of String(id)) h = (h * 31 + c.charCodeAt(0)) >>> 0; return `var(--h${h % 6})`; };
 export const reduceMotion = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
 export const raf = (fn) => requestAnimationFrame(fn);
+/* An ease-out curve + duration whose starting speed matches a finger's release speed,
+   so a flung card/sheet/row keeps moving instead of stalling. v in px/ms, dist in px. */
+export function fling(v, dist, { min = 180, max = 420 } = {}) {
+  v = Math.abs(v); dist = Math.max(1, Math.abs(dist));
+  if (v < 0.15) return { ms: max * 0.85, ease: 'cubic-bezier(0.3, 0, 0.2, 1)' };
+  const ms = Math.min(max, Math.max(min, (dist / v) * 2));
+  const slope = (v * ms) / dist; // progress per unit time needed at t=0
+  const x1 = 0.25, y1 = Math.min(1, slope * x1);
+  return { ms, ease: `cubic-bezier(${x1}, ${y1.toFixed(3)}, 0.3, 1)` };
+}
+const cssCache = {};
+export const cssVar = (name) => (cssCache[name] ??= getComputedStyle(document.documentElement).getPropertyValue(name).trim());
 export const isIOS = /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 export const standalone = () => matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
 
